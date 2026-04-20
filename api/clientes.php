@@ -11,7 +11,7 @@
  *   id (int, requerido) — ID del cliente
  *
  * Respuesta:
- *   { ok: true, data: { id, nombre, telefono, direccion } }
+ *   { ok: true, data: { id, nombre, celular, direccion } }
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT id, nombre, telefono, direccion, correo, lat, lng FROM clientes WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, nombre, celular, direccion, correo, lat, lng FROM clientes WHERE id = ?");
     $stmt->execute([$id]);
     $cliente = $stmt->fetch();
 
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
     }
 
     $nombre    = isset($body['nombre'])    ? trim($body['nombre'])    : null;
-    $telefono  = isset($body['telefono'])  ? trim($body['telefono'])  : null;
+    $celular  = isset($body['celular'])  ? trim($body['celular'])  : null;
     $direccion = isset($body['direccion']) ? trim($body['direccion']) : null;
     $correo    = isset($body['correo'])    ? trim($body['correo'])    : null;
     $lat       = array_key_exists('lat', $body) ? ($body['lat'] !== null ? (float)$body['lat'] : null) : false;
@@ -77,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
         exit;
     }
 
-    $campos = ['nombre = ?', 'telefono = ?', 'direccion = ?', 'correo = ?'];
-    $params = [$nombre, $telefono ?: null, $direccion ?: null, $correo ?: null];
+    $campos = ['nombre = ?', 'celular = ?', 'direccion = ?', 'correo = ?'];
+    $params = [$nombre, $celular ?: null, $direccion ?: null, $correo ?: null];
 
     if ($lat !== false) { $campos[] = 'lat = ?'; $params[] = $lat; }
     if ($lng !== false) { $campos[] = 'lng = ?'; $params[] = $lng; }

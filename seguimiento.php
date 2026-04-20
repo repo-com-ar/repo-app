@@ -15,7 +15,7 @@ if ($numero) {
         $pdo = getDB();
 
         $stmt = $pdo->prepare("
-            SELECT p.id, p.numero, p.cliente, p.telefono, p.direccion, p.total, p.estado, p.created_at,
+            SELECT p.id, p.numero, p.cliente, p.celular, p.direccion, p.total, p.estado, p.created_at,
                    pi.nombre AS item_nombre, pi.cantidad, pi.precio AS precio_unitario
             FROM pedidos p
             LEFT JOIN pedido_items pi ON pi.pedido_id = p.id
@@ -30,7 +30,7 @@ if ($numero) {
                 'id'        => $rows[0]['id'],
                 'numero'    => $rows[0]['numero'],
                 'cliente'   => $rows[0]['cliente'],
-                'telefono'  => $rows[0]['telefono'],
+                'celular'  => $rows[0]['celular'],
                 'direccion' => $rows[0]['direccion'],
                 'total'     => $rows[0]['total'],
                 'estado'    => $rows[0]['estado'],
@@ -162,7 +162,7 @@ $pasoActual = $pedido ? array_search($pedido['estado'], $pasos) : -1;
     <div class="section">
       <div class="section-title">Datos del pedido</div>
       <div class="info-row"><span class="info-icon">👤</span> <?= htmlspecialchars($pedido['cliente']) ?></div>
-      <div class="info-row"><span class="info-icon">📞</span> <?= htmlspecialchars($pedido['telefono']) ?></div>
+      <div class="info-row"><span class="info-icon">📞</span> <?= htmlspecialchars($pedido['celular']) ?></div>
       <?php if ($pedido['direccion']): ?>
       <div class="info-row"><span class="info-icon">📍</span> <?= htmlspecialchars($pedido['direccion']) ?></div>
       <?php endif; ?>

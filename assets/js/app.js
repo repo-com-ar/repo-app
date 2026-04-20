@@ -48,8 +48,8 @@ const tema = {
   updateIcon(t) {
     const btn = document.getElementById('btnTema');
     if (btn) btn.innerHTML = t === 'dark'
-      ? `<img src="${OM}2600.svg" alt="día" width="22" height="22">`
-      : `<img src="${OM}1F319.svg" alt="noche" width="22" height="22">`;
+      ? `<i class="fa-solid fa-sun" style="font-size:18px"></i>`
+      : `<i class="fa-solid fa-moon" style="font-size:18px"></i>`;
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#32373D' : '#ffffff');
   },
@@ -89,7 +89,7 @@ async function notificarWhatsApp(pedido, datos) {
   const total  = datos.items.reduce((s, i) => s + i.precio * i.cantidad, 0);
   const cuerpo = `🛒 *Nuevo pedido ${pedido.numero}*\n\n`
     + `👤 ${datos.cliente}\n`
-    + `📞 ${datos.telefono}\n`
+    + `📞 ${datos.celular}\n`
     + `📍 ${datos.direccion}\n`
     + (datos.notas ? `📝 ${datos.notas}\n` : '')
     + `\n${lineas}\n\n`
@@ -131,7 +131,7 @@ async function notificarWhatsApp(pedido, datos) {
 }
 
 async function notificarClienteWA(pedido, datos) {
-  if (!datos.telefono) return;
+  if (!datos.celular) return;
 
   const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
   const linkSeguimiento = baseUrl + 'seguimiento?p=' + encodeURIComponent(pedido.numero);
@@ -151,7 +151,7 @@ async function notificarClienteWA(pedido, datos) {
       remitente:    'Repo Online',
       remite:       '1169391123',
       destinatario: datos.cliente,
-      destino:      datos.telefono,
+      destino:      datos.celular,
       prioridad:    '2',
       asunto:       'Confirmación pedido ' + pedido.numero,
       cuerpo:       cuerpo,
@@ -295,7 +295,7 @@ function renderCartItems() {
   if (!el) return;
 
   if (!state.cart.length) {
-    el.innerHTML = `<div class="cart-empty"><span class="empty-icon"><img src="${OM}1F6D2.svg" alt="carrito" width="48" height="48"></span><p>Tu carrito está vacío</p></div>`;
+    el.innerHTML = `<div class="cart-empty"><span class="empty-icon"><i class="fa-solid fa-cart-shopping" style="font-size:48px"></i></span><p>Tu carrito está vacío</p></div>`;
     if (footer) footer.style.display = 'none';
     return;
   }
@@ -436,7 +436,8 @@ async function handleCheckout(e) {
 
   const datos = {
     cliente:   document.getElementById('fCliente').value.trim(),
-    telefono:  document.getElementById('fTelefono').value.trim(),
+    correo:    document.getElementById('fEmail').value.trim(),
+    celular:  document.getElementById('fTelefono').value.trim(),
     direccion: document.getElementById('fDireccion').value.trim(),
     notas:     document.getElementById('fNotas').value.trim(),
     items:     state.cart,
@@ -549,7 +550,7 @@ async function cargarMisPedidos() {
 
   const clienteId = getCookie('cliente_id');
   if (!clienteId) {
-    lista.innerHTML = `<div class="empty"><div class="empty-icon"><img src="${OM}1F4CB.svg" alt="pedidos" width="56" height="56"></div><p>Aún no hiciste ningún pedido</p></div>`;
+    lista.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fa-solid fa-receipt" style="font-size:56px"></i></div><p>Aún no hiciste ningún pedido</p></div>`;
     return;
   }
   try {
@@ -576,14 +577,14 @@ const ESTADO_LABEL = {
 function renderPedidos(lista) {
   const el = document.getElementById('pedidosList');
   if (!lista.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon"><img src="${OM}1F4CB.svg" alt="pedidos" width="56" height="56"></div><p>Aún no hiciste ningún pedido</p></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fa-solid fa-receipt" style="font-size:56px"></i></div><p>Aún no hiciste ningún pedido</p></div>`;
     return;
   }
   el.innerHTML = lista.map(p => {
     const fecha  = new Date(p.fecha).toLocaleDateString('es-AR', { day:'numeric', month:'short', year:'numeric' });
     const items  = p.items.map(i => `<div class="pcard-item">${i.cantidad}× ${i.nombre} <span>$${(i.precio * i.cantidad).toLocaleString('es-AR')}</span></div>`).join('');
     return `
-      <div class="pcard">
+      <div class="pcard" onclick='openPedModal(${JSON.stringify(p)})' style="cursor:pointer">
         <div class="pcard-head">
           <div>
             <div class="pcard-num">${p.numero}</div>
@@ -599,6 +600,61 @@ function renderPedidos(lista) {
   }).join('');
 }
 
+/* ===== Modal detalle pedido ===== */
+const PED_ESTADOS = {
+  pendiente:  { label: 'Recibido',   color: '#f59e0b' },
+  confirmado: { label: 'Confirmado', color: '#3b82f6' },
+  preparando: { label: 'Preparando', color: '#8b5cf6' },
+  enviado:    { label: 'En camino',  color: '#06b6d4' },
+  entregado:  { label: 'Entregado',  color: '#22c55e' },
+  cancelado:  { label: 'Cancelado',  color: '#ef4444' },
+};
+const PED_PASOS = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado'];
+const PED_PASO_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entregado'];
+
+function openPedModal(p) {
+  const est = PED_ESTADOS[p.estado] || { label: p.estado, color: '#64748b' };
+  const fecha = new Date(p.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const pasoActual = PED_PASOS.indexOf(p.estado);
+
+  document.getElementById('pmNum').textContent = p.numero;
+  document.getElementById('pmFecha').textContent = fecha;
+  document.getElementById('pmEstado').innerHTML =
+    `<span class="pm-badge" style="background:${est.color}22;color:${est.color}">${est.label}</span>`;
+
+  // Barra de progreso
+  if (p.estado !== 'cancelado') {
+    document.getElementById('pmSteps').innerHTML = PED_PASOS.map((paso, i) => {
+      const done = pasoActual > i, active = pasoActual === i;
+      const cls = done ? 'done' : active ? 'active' : 'pending';
+      return `<div class="pm-step">
+        <div class="pm-step-dot ${cls}">${done ? '✓' : i + 1}</div>
+        <div class="pm-step-label">${PED_PASO_LABELS[i]}</div>
+        ${i < PED_PASOS.length - 1 ? `<div class="pm-step-line ${done ? 'done' : 'pending'}"></div>` : ''}
+      </div>`;
+    }).join('');
+  } else {
+    document.getElementById('pmSteps').innerHTML = '';
+  }
+
+  // Items
+  document.getElementById('pmItems').innerHTML = p.items.map(i =>
+    `<div class="pm-item-row">
+      <div><div class="pm-item-nombre">${i.nombre}</div><div class="pm-item-cant">× ${i.cantidad}</div></div>
+      <div class="pm-item-precio">$${(i.precio * i.cantidad).toLocaleString('es-AR')}</div>
+    </div>`
+  ).join('');
+  document.getElementById('pmTotal').textContent = '$' + p.total.toLocaleString('es-AR');
+
+  document.getElementById('pedModalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePedModal() {
+  document.getElementById('pedModalBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 /* ===== Perfil ===== */
 let perfilData = null;
 let perfilGeoLat = null;
@@ -611,7 +667,7 @@ async function cargarPerfil() {
   if (!clienteId) {
     el.innerHTML = `
       <div class="perfil-empty">
-        <div class="perfil-empty-icon"><img src="${OM}1F464.svg" alt="perfil" width="56" height="56"></div>
+        <div class="perfil-empty-icon"><i class="fa-solid fa-circle-user" style="font-size:56px"></i></div>
         <p>Aún no tenés un perfil guardado.</p>
         <small>Realizá tu primer pedido para crear tu perfil.</small>
       </div>`;
@@ -661,7 +717,7 @@ function renderPerfil(cli) {
     + '<div class="perfil-avatar">' + iniciales + '</div>'
     + '<div class="perfil-info">'
       + '<div class="perfil-nombre">' + (cli.nombre || '—') + '</div>'
-      + '<div class="perfil-fila"><span class="perfil-icono">📞</span><span>' + (cli.telefono || 'Sin teléfono') + '</span></div>'
+      + '<div class="perfil-fila"><span class="perfil-icono">📞</span><span>' + (cli.celular || 'Sin teléfono') + '</span></div>'
       + filaCorreo
       + '<div class="perfil-fila"><span class="perfil-icono">🏠</span><span>' + (cli.direccion || 'Sin dirección') + '</span></div>'
       + filaGps
@@ -676,7 +732,7 @@ function openPerfilModal() {
   if (!perfilData) return;
   document.getElementById('pNombre').value    = perfilData.nombre    || '';
   document.getElementById('pCorreo').value    = perfilData.correo    || '';
-  document.getElementById('pTelefono').value  = perfilData.telefono  || '';
+  document.getElementById('pTelefono').value  = perfilData.celular  || '';
   document.getElementById('pDireccion').value = perfilData.direccion || '';
 
   // Estado GPS
@@ -808,7 +864,7 @@ async function quitarUbicacionDirecta() {
 async function guardarPerfil() {
   const nombre    = document.getElementById('pNombre').value.trim();
   const correo    = document.getElementById('pCorreo').value.trim();
-  const telefono  = document.getElementById('pTelefono').value.trim();
+  const celular  = document.getElementById('pTelefono').value.trim();
   const direccion = document.getElementById('pDireccion').value.trim();
   const clienteId = getCookie('cliente_id');
 
@@ -821,7 +877,7 @@ async function guardarPerfil() {
   const payload = {
     id: parseInt(clienteId),
     nombre, correo: correo || null,
-    telefono: telefono || null,
+    celular: celular || null,
     direccion: direccion || null,
     lat: perfilGeoLat,
     lng: perfilGeoLng,
@@ -835,7 +891,7 @@ async function guardarPerfil() {
     });
     const data = await res.json();
     if (data.ok) {
-      perfilData = { ...perfilData, nombre, correo, telefono, direccion, lat: perfilGeoLat, lng: perfilGeoLng };
+      perfilData = { ...perfilData, nombre, correo, celular, direccion, lat: perfilGeoLat, lng: perfilGeoLng };
       renderPerfil(perfilData);
       closePerfilModal();
       showToast('Perfil actualizado');
@@ -844,7 +900,7 @@ async function guardarPerfil() {
       const fTel = document.getElementById('fTelefono');
       const fDir = document.getElementById('fDireccion');
       if (fCli) fCli.value = nombre;
-      if (fTel) fTel.value = telefono;
+      if (fTel) fTel.value = celular;
       if (fDir) fDir.value = direccion;
     } else {
       showToast(data.error || 'Error al guardar');
@@ -1006,7 +1062,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       var cliData = await cliRes.json();
       if (cliData.ok && cliData.data) {
         document.getElementById('fCliente').value = cliData.data.nombre || '';
-        document.getElementById('fTelefono').value = cliData.data.telefono || '';
+        document.getElementById('fEmail').value = cliData.data.correo || '';
+        document.getElementById('fTelefono').value = cliData.data.celular || '';
         document.getElementById('fDireccion').value = cliData.data.direccion || '';
       }
     } catch (e) { /* silencioso */ }

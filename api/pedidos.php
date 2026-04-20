@@ -6,7 +6,7 @@
  *   Crea un nuevo pedido. Busca o crea el cliente por nombre+teléfono,
  *   inserta el pedido y sus ítems en una transacción, y calcula
  *   distancia/tiempo desde el centro de distribución via Google Distance Matrix API.
- *   Body JSON: { items, cliente, telefono, direccion, notas, lat?, lng? }
+ *   Body JSON: { items, cliente, celular, direccion, notas, lat?, lng? }
  *   Respuesta: { ok: true, pedido: { numero, fecha, cliente, ... } }
  *
  * GET /repo-app/api/pedidos.php
@@ -103,32 +103,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Buscar o crear cliente
         $clienteNombre = trim($body['cliente']);
-        $clienteTel = trim($body['telefono'] ?? '');
+        $clienteTel = trim($body['celular'] ?? '');
         $clienteDir = trim($body['direccion'] ?? '');
+        $clienteCorreo = trim($body['correo'] ?? '');
         $clienteId = null;
 
         // Buscar por nombre + teléfono
-        $stmtCli = $pdo->prepare("SELECT id FROM clientes WHERE nombre = ? AND telefono = ? LIMIT 1");
+        $stmtCli = $pdo->prepare("SELECT id FROM clientes WHERE nombre = ? AND celular = ? LIMIT 1");
         $stmtCli->execute([$clienteNombre, $clienteTel]);
         $existente = $stmtCli->fetch();
 
         if ($existente) {
             $clienteId = (int)$existente['id'];
-            // Actualizar dirección si cambió
-            $pdo->prepare("UPDATE clientes SET direccion = ?, updated_at = NOW() WHERE id = ?")->execute([$clienteDir, $clienteId]);
+            $pdo->prepare("UPDATE clientes SET direccion = ?, correo = ?, updated_at = NOW() WHERE id = ?")->execute([$clienteDir, $clienteCorreo ?: null, $clienteId]);
         } else {
-            $pdo->prepare("INSERT INTO clientes (nombre, telefono, direccion) VALUES (?, ?, ?)")->execute([$clienteNombre, $clienteTel, $clienteDir]);
+            $pdo->prepare("INSERT INTO clientes (nombre, celular, direccion, correo) VALUES (?, ?, ?, ?)")->execute([$clienteNombre, $clienteTel, $clienteDir, $clienteCorreo ?: null]);
             $clienteId = (int)$pdo->lastInsertId();
         }
 
         $stmt = $pdo->prepare("
-            INSERT INTO pedidos (numero, cliente_id, cliente, telefono, direccion, notas, total, estado, lat, lng, distancia_km, tiempo_min)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?)
+            INSERT INTO pedidos (numero, cliente_id, cliente, correo, celular, direccion, notas, total, estado, lat, lng, distancia_km, tiempo_min)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?)
         ");
         $stmt->execute([
             $numero,
             $clienteId,
             $clienteNombre,
+            $clienteCorreo ?: null,
             $clienteTel,
             $clienteDir,
             $body['notas'] ?? '',
@@ -178,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'fecha'     => date('Y-m-d H:i:s'),
             'cliente'   => $clienteNombre,
             'cliente_id' => $clienteId,
-            'telefono'  => $clienteTel,
+            'celular'  => $clienteTel,
             'direccion' => $clienteDir,
             'notas'     => $body['notas'] ?? '',
             'items'     => $body['items'],
@@ -216,7 +217,7 @@ if (isset($_GET['cliente_id'])) {
 
 // GET: listar últimos pedidos
 $stmt = $pdo->query("
-    SELECT id, numero, cliente, telefono, direccion, notas, total, estado, created_at as fecha
+    SELECT id, numero, cliente, celular, direccion, notas, total, estado, created_at as fecha
     FROM pedidos ORDER BY id DESC LIMIT 20
 ");
 $pedidos = $stmt->fetchAll();

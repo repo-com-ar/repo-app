@@ -10,6 +10,7 @@
   <title>Repo Super Online</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
 
@@ -20,10 +21,10 @@
     <img class="logo-dark"  src="assets/img/repo_logo_withe.png" alt="Repo Online" style="height:30px; width:auto;">
   </div>
   <button class="btn-icon" id="btnTema" onclick="tema.toggle()" title="Cambiar tema">
-    <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F319.svg" alt="noche" width="22" height="22">
+    <i class="fa-solid fa-moon" style="font-size:18px"></i>
   </button>
   <button class="btn-icon" onclick="openCart()" title="Ver carrito">
-    <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F6D2.svg" alt="carrito" width="22" height="22">
+    <i class="fa-solid fa-cart-shopping" style="font-size:18px"></i>
     <span class="badge" id="cartBadge">0</span>
   </button>
 </header>
@@ -35,7 +36,7 @@
   <div class="search-wrap">
     <div class="search-box">
       <span class="search-icon">
-        <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F50D.svg" alt="buscar" width="18" height="18">
+        <i class="fa-solid fa-magnifying-glass" style="font-size:16px"></i>
       </span>
       <input type="search" id="searchInput" placeholder="Buscar productos..." autocomplete="off" inputmode="search">
     </div>
@@ -104,14 +105,13 @@
   <div class="drawer-handle"></div>
   <div class="drawer-header">
     <div class="drawer-title">
-      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F6D2.svg" alt="carrito" width="22" height="22">
       Mi carrito
     </div>
     <button class="btn-close" onclick="closeCart()">✕</button>
   </div>
   <div class="cart-items" id="cartItemsList">
     <div class="cart-empty">
-      <span class="empty-icon"><img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F6D2.svg" alt="carrito" width="48" height="48"></span>
+      <span class="empty-icon"><i class="fa-solid fa-cart-shopping" style="font-size:48px"></i></span>
       <p>Tu carrito está vacío</p>
     </div>
   </div>
@@ -122,7 +122,6 @@
     </div>
     <button class="btn-checkout" onclick="openCheckout()">
       Finalizar Pedido
-      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F4E6.svg" alt="pedido" width="20" height="20">
     </button>
   </div>
 </div>
@@ -147,23 +146,17 @@
 
     <!-- Formulario -->
     <form id="checkoutForm" onsubmit="handleCheckout(event)">
-      <!-- Resumen -->
-      <div class="order-summary">
-        <h3>Resumen del pedido</h3>
-        <div id="orderSummaryLines"></div>
-        <div class="summary-total">
-          <span>Total</span>
-          <span>$<span id="summaryTotal">0</span></span>
-        </div>
-      </div>
-
       <!-- Datos -->
       <div class="form-group">
         <label>Tu nombre *</label>
         <input type="text" id="fCliente" placeholder="Ej: María González" required autocomplete="name">
       </div>
       <div class="form-group">
-        <label>Teléfono *</label>
+        <label>Correo electrónico *</label>
+        <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Celular *</label>
         <input type="tel" id="fTelefono" placeholder="Ej: 11 2345-6789" required autocomplete="tel">
       </div>
       <div class="form-group">
@@ -238,22 +231,44 @@
 <!-- ===== Bottom nav ===== -->
 <nav class="bottom-nav">
   <button class="nav-tab active" onclick="selectTab('inicio', this)">
-    <span class="nav-icon"><img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F3E0.svg" alt="inicio" width="24" height="24"></span>
+    <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
     Inicio
   </button>
   <button class="nav-tab" onclick="openCart()">
-    <span class="nav-icon"><img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F6D2.svg" alt="carrito" width="24" height="24"></span>
+    <span class="nav-icon"><i class="fa-solid fa-cart-shopping"></i></span>
     Carrito
   </button>
   <button class="nav-tab" onclick="selectTab('pedidos', this)">
-    <span class="nav-icon"><img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F4CB.svg" alt="pedidos" width="24" height="24"></span>
+    <span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>
     Pedidos
   </button>
   <button class="nav-tab" onclick="selectTab('perfil', this)">
-    <span class="nav-icon"><img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F464.svg" alt="perfil" width="24" height="24"></span>
+    <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
     Perfil
   </button>
 </nav>
+
+<!-- ===== Modal detalle pedido ===== -->
+<div class="ped-modal-backdrop" id="pedModalBackdrop" onclick="if(event.target===this)closePedModal()">
+  <div class="ped-modal" id="pedModal">
+    <div class="ped-modal-header">
+      <div>
+        <div class="ped-modal-num" id="pmNum"></div>
+        <div class="ped-modal-fecha" id="pmFecha"></div>
+      </div>
+      <button class="btn-icon" onclick="closePedModal()"><i class="fa-solid fa-xmark" style="font-size:18px"></i></button>
+    </div>
+    <div class="ped-modal-body">
+      <div id="pmEstado"></div>
+      <div class="pm-steps" id="pmSteps"></div>
+      <div class="pm-section">
+        <div class="pm-section-title">Productos</div>
+        <div id="pmItems"></div>
+        <div class="pm-total-row"><span>Total</span><span id="pmTotal"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="assets/js/app.js?v=<?= time() ?>"></script>
 </body>
