@@ -50,6 +50,8 @@ const tema = {
     if (btn) btn.innerHTML = t === 'dark'
       ? `<img src="${OM}2600.svg" alt="día" width="22" height="22">`
       : `<img src="${OM}1F319.svg" alt="noche" width="22" height="22">`;
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#32373D' : '#ffffff');
   },
 };
 
@@ -59,7 +61,7 @@ async function fetchProductos(cat = 'todos', q = '') {
   renderProducts([]);
 
   const params = new URLSearchParams({ categoria: cat, q });
-  const res  = await fetch(`api/productos.php?${params}`);
+  const res  = await fetch(`api/productos?${params}`);
   const data = await res.json();
 
   state.productos = data.data || [];
@@ -68,7 +70,7 @@ async function fetchProductos(cat = 'todos', q = '') {
 }
 
 async function enviarPedido(datos) {
-  const res  = await fetch('api/pedidos.php', {
+  const res  = await fetch('api/pedidos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos),
@@ -77,7 +79,7 @@ async function enviarPedido(datos) {
   try {
     return JSON.parse(text);
   } catch {
-    console.error('Respuesta no JSON de pedidos.php:', text);
+    console.error('Respuesta no JSON de pedidos:', text);
     return { ok: false, error: text };
   }
 }
@@ -114,7 +116,7 @@ async function notificarWhatsApp(pedido, datos) {
       tags:         'pedido',
     };
     console.log('[WA] payload →', payload);
-    const waRes  = await fetch('api/notificar_whatsapp.php', {
+    const waRes  = await fetch('api/notificar_whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -132,7 +134,7 @@ async function notificarClienteWA(pedido, datos) {
   if (!datos.telefono) return;
 
   const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-  const linkSeguimiento = baseUrl + 'seguimiento.php?p=' + encodeURIComponent(pedido.numero);
+  const linkSeguimiento = baseUrl + 'seguimiento?p=' + encodeURIComponent(pedido.numero);
 
   const cuerpo = '¡Hola ' + datos.cliente.split(' ')[0] + '! 👋\n\n'
     + 'Recibimos tu pedido *' + pedido.numero + '* y ya lo estamos procesando. 🛒\n\n'
@@ -160,7 +162,7 @@ async function notificarClienteWA(pedido, datos) {
       parametros:   '',
       tags:         'confirmacion',
     };
-    await fetch('api/notificar_whatsapp.php', {
+    await fetch('api/notificar_whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -172,7 +174,7 @@ async function notificarClienteWA(pedido, datos) {
 
 function registrarEvento(detalle) {
   const clienteId = parseInt(getCookie('cliente_id')) || 0;
-  fetch('api/eventos.php', {
+  fetch('api/eventos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cliente_id: clienteId, detalle }),
@@ -475,7 +477,7 @@ let categorias = [
 
 async function cargarCategorias() {
   try {
-    const res = await fetch('api/categorias.php');
+    const res = await fetch('api/categorias');
     const data = await res.json();
     if (data.ok && data.data.length) {
       categorias = [
@@ -551,7 +553,7 @@ async function cargarMisPedidos() {
     return;
   }
   try {
-    const res  = await fetch(`api/pedidos.php?cliente_id=${clienteId}`);
+    const res  = await fetch(`api/pedidos?cliente_id=${clienteId}`);
     const data = await res.json();
     if (data.ok) {
       renderPedidos(data.data);
@@ -619,7 +621,7 @@ async function cargarPerfil() {
   el.innerHTML = `<div class="spinner"><div class="spin"></div></div>`;
 
   try {
-    const res  = await fetch(`api/clientes.php?id=${clienteId}`);
+    const res  = await fetch(`api/clientes?id=${clienteId}`);
     const data = await res.json();
     if (data.ok && data.data) {
       perfilData = data.data;
@@ -749,7 +751,7 @@ function detectarUbicacionDirecta() {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       try {
-        const res = await fetch('api/clientes.php', {
+        const res = await fetch('api/clientes', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: parseInt(clienteId), lat, lng }),
@@ -782,7 +784,7 @@ async function quitarUbicacionDirecta() {
   if (!clienteId || !perfilData) return;
 
   try {
-    const res = await fetch('api/clientes.php', {
+    const res = await fetch('api/clientes', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: parseInt(clienteId), lat: null, lng: null }),
@@ -826,7 +828,7 @@ async function guardarPerfil() {
   };
 
   try {
-    const res = await fetch('api/clientes.php', {
+    const res = await fetch('api/clientes', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -1000,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   var clienteId = getCookie('cliente_id');
   if (clienteId) {
     try {
-      var cliRes = await fetch('api/clientes.php?id=' + clienteId);
+      var cliRes = await fetch('api/clientes?id=' + clienteId);
       var cliData = await cliRes.json();
       if (cliData.ok && cliData.data) {
         document.getElementById('fCliente').value = cliData.data.nombre || '';
@@ -1012,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Cargar config
   try {
-    const cfgRes = await fetch('api/configuracion.php');
+    const cfgRes = await fetch('api/configuracion');
     const cfgData = await cfgRes.json();
     if (cfgData.ok && cfgData.data) {
       pedidoMinimo = parseInt(cfgData.data.pedido_minimo) || 0;
