@@ -1,7 +1,7 @@
 <?php
 /**
  * Página pública de seguimiento de pedido.
- * URL: /lider-app/seguimiento.php?p=PED-XXXXXX
+ * URL: /repo-app/seguimiento.php?p=PED-XXXXXX
  */
 $numero = isset($_GET['p']) ? strtoupper(trim($_GET['p'])) : '';
 
@@ -127,7 +127,7 @@ $pasoActual = $pedido ? array_search($pedido['estado'], $pasos) : -1;
 
     <!-- Header -->
     <div class="card-header">
-      <div class="brand">🛒 Lider Online</div>
+      <div class="brand">🛒 Repo Online</div>
       <div class="ped-num"><?= htmlspecialchars($pedido['numero']) ?></div>
       <div class="ped-fecha"><?= date('d/m/Y H:i', strtotime($pedido['fecha'])) ?></div>
       <div class="estado-badge" style="background:<?= $est['color'] ?>22;color:<?= $est['color'] ?>">

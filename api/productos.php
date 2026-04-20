@@ -2,7 +2,7 @@
 /**
  * API pública — Productos
  *
- * GET /lider-app/api/productos.php[?categoria={id}&q={texto}]
+ * GET /repo-app/api/productos.php[?categoria={id}&q={texto}]
  * Devuelve los productos disponibles con filtros opcionales de categoría y búsqueda.
  * Usada por el frontend para renderizar el catálogo y el buscador.
  *

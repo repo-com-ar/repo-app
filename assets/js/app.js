@@ -99,9 +99,9 @@ async function notificarWhatsApp(pedido, datos) {
       proyecto:     'vigicom',
       canal:        'repo-hum',
       plantilla:    '',
-      remitente:    'Lider Online',
+      remitente:    'Repo Online',
       remite:       '1169391123',
-      destinatario: 'Lider',
+      destinatario: 'Repo',
       destino:      '2644984568',
       prioridad:    '2',
       asunto:       'Nuevo pedido ' + pedido.numero,
@@ -146,7 +146,7 @@ async function notificarClienteWA(pedido, datos) {
       proyecto:     'vigicom',
       canal:        'repo-hum',
       plantilla:    '',
-      remitente:    'Lider Online',
+      remitente:    'Repo Online',
       remite:       '1169391123',
       destinatario: datos.cliente,
       destino:      datos.telefono,
@@ -967,7 +967,7 @@ function shareProduct() {
 
   if (navigator.share) {
     navigator.share({
-      title: currentDetailProduct.nombre + ' - Lider Online',
+      title: currentDetailProduct.nombre + ' - Repo Online',
       text: currentDetailProduct.nombre + ' $' + currentDetailProduct.precio.toLocaleString('es-AR'),
       url: shareUrl,
     }).catch(() => {});

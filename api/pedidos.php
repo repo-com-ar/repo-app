@@ -2,14 +2,14 @@
 /**
  * API pública — Pedidos
  *
- * POST /lider-app/api/pedidos.php
+ * POST /repo-app/api/pedidos.php
  *   Crea un nuevo pedido. Busca o crea el cliente por nombre+teléfono,
  *   inserta el pedido y sus ítems en una transacción, y calcula
  *   distancia/tiempo desde el centro de distribución via Google Distance Matrix API.
  *   Body JSON: { items, cliente, telefono, direccion, notas, lat?, lng? }
  *   Respuesta: { ok: true, pedido: { numero, fecha, cliente, ... } }
  *
- * GET /lider-app/api/pedidos.php
+ * GET /repo-app/api/pedidos.php
  *   Lista los últimos 20 pedidos con sus ítems.
  *   Respuesta: { ok: true, data: [ { id, numero, cliente, items, total, estado, ... } ] }
  *

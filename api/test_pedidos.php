@@ -2,7 +2,7 @@
 /**
  * Script de diagnóstico — Conexión y tablas de pedidos
  *
- * GET /lider-app/api/test_pedidos.php
+ * GET /repo-app/api/test_pedidos.php
  * Verifica paso a paso: PHP, existencia del config, conexión a la base de datos
  * y presencia de las tablas `pedidos` y `pedido_items`.
  * Solo para uso en desarrollo/depuración. No exponer en producción.

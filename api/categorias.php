@@ -2,7 +2,7 @@
 /**
  * API pública — Categorías
  *
- * GET /lider-app/api/categorias.php
+ * GET /repo-app/api/categorias.php
  * Devuelve las categorías activas ordenadas por `orden ASC`.
  * Usada por el frontend de la app para armar el selector de categorías.
  *

@@ -2,7 +2,7 @@
 /**
  * API pública — Configuración
  *
- * GET /lider-app/api/configuracion.php
+ * GET /repo-app/api/configuracion.php
  * Devuelve los parámetros de configuración del sistema (clave → valor).
  * Usada por el frontend para conocer el pedido mínimo antes de permitir el checkout.
  * Si la tabla no existe o hay error, retorna defaults seguros (pedido_minimo = 0).

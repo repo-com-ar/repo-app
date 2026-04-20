@@ -1,11 +1,11 @@
-# Lider App
+# Repo App
 
-Aplicación web mobile-first para clientes del sistema **Lider Online**. Permite explorar el catálogo de productos, armar un carrito y realizar pedidos con notificación automática por WhatsApp.
+Aplicación web mobile-first para clientes del sistema **Repo Online**. Permite explorar el catálogo de productos, armar un carrito y realizar pedidos con notificación automática por WhatsApp.
 
 ## Acceso
 
 ```
-/lider-app/index.php
+/repo-app/index.php
 ```
 
 No requiere instalación ni login previo. El cliente se identifica automáticamente por cookie tras realizar su primer pedido.
@@ -55,13 +55,13 @@ Al confirmar un pedido el sistema envía automáticamente **dos mensajes por Wha
 1. **Al negocio** — detalle completo del pedido (cliente, dirección, ítems, total)
 2. **Al cliente** — confirmación con link de seguimiento personalizado
 
-Ambos se registran en la tabla `mensajes` visible desde lider-admin.
+Ambos se registran en la tabla `mensajes` visible desde repo-admin.
 
 ---
 
 ## API endpoints
 
-Todos en `/lider-app/api/`:
+Todos en `/repo-app/api/`:
 
 | Archivo | Métodos | Descripción |
 |---|---|---|
@@ -78,7 +78,7 @@ Todos en `/lider-app/api/`:
 ## Estructura de archivos
 
 ```
-lider-app/
+repo-app/
 ├── index.php               # SPA principal (catálogo, carrito, checkout, perfil, pedidos)
 ├── seguimiento.php         # Página pública de seguimiento de pedido
 ├── manifest.json           # Manifest PWA
@@ -92,7 +92,7 @@ lider-app/
 
 ## Base de datos
 
-Usa la base de datos `lider`. Conexión definida en `/config/db.php`.
+Usa la base de datos `repo`. Conexión definida en `/config/db.php`.
 
 Tablas que consume: `productos`, `categorias`, `pedidos`, `pedido_items`, `clientes`, `mensajes`, `eventos`, `configuracion`.
 
