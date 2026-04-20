@@ -37,7 +37,7 @@ if ($curlError) {
 // Registrar el mensaje en la tabla de mensajes del admin
 $estado = ($httpCode >= 200 && $httpCode < 300) ? 'enviado' : 'error';
 try {
-    require_once __DIR__ . '/../../config/db.php';
+    require_once __DIR__ . '/../../repo-api/config/db.php';
     $pdo = getDB();
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS mensajes (

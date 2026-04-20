@@ -11,7 +11,7 @@ header('Content-Type: application/json');
 echo json_encode(['step' => 1, 'msg' => 'PHP funciona']);
 
 // Test 2: config exists?
-$configPath = __DIR__ . '/../../config/db.php';
+$configPath = __DIR__ . '/../../repo-api/config/db.php';
 echo "\n" . json_encode(['step' => 2, 'config_exists' => file_exists($configPath), 'dir' => __DIR__, 'config_path' => $configPath]);
 
 // Test 3: include config

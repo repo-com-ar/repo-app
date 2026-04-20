@@ -11,7 +11,7 @@ $error  = '';
 
 if ($numero) {
     try {
-        require_once __DIR__ . '/../config/db.php';
+        require_once __DIR__ . '/../repo-api/config/db.php';
         $pdo = getDB();
 
         $stmt = $pdo->prepare("

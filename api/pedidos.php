@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
-$configPath = __DIR__ . '/../../config/db.php';
+$configPath = __DIR__ . '/../../repo-api/config/db.php';
 if (!file_exists($configPath)) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'config/db.php no encontrado', 'path' => realpath(__DIR__), 'expected' => $configPath]);
