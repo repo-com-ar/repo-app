@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Pedidos de comestibles rápido y fácil">
-  <title>Repo Online</title>
+  <title>Repo Super Online</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
 </head>
@@ -17,8 +17,8 @@
 <!-- ===== Header ===== -->
 <header class="header">
   <div class="header-logo">
-    <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F6D2.svg" alt="carrito" width="24" height="24">
-    Repo Online
+    <img class="logo-light" src="assets/img/repo_logo_black.png" alt="Repo Online" style="height:30px; width:auto;">
+    <img class="logo-dark"  src="assets/img/repo_logo_withe.png" alt="Repo Online" style="height:30px; width:auto;">
   </div>
   <button class="btn-icon" id="btnTema" onclick="tema.toggle()" title="Cambiar tema">
     <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/1F319.svg" alt="noche" width="22" height="22">

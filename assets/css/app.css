@@ -10,9 +10,9 @@
   --text:        #1a1a1a;
   --text2:       #666666;
   --text3:       #999999;
-  --primary:     #ff6b35;
-  --primary-dk:  #e05520;
-  --primary-lt:  #fff1ec;
+  --primary:     #FFA000;
+  --primary-dk:  #e08c00;
+  --primary-lt:  #fff8e1;
   --green:       #22c55e;
   --red:         #ef4444;
   --shadow:      0 2px 12px rgba(0,0,0,.08);
@@ -31,9 +31,9 @@
   --text:        #f0f0f0;
   --text2:       #aaaaaa;
   --text3:       #666666;
-  --primary:     #ff7849;
-  --primary-dk:  #ff6433;
-  --primary-lt:  #2a1a12;
+  --primary:     #FFA000;
+  --primary-dk:  #e08c00;
+  --primary-lt:  #2a1f00;
   --shadow:      0 2px 12px rgba(0,0,0,.4);
   --shadow-lg:   0 8px 32px rgba(0,0,0,.6);
 }
@@ -64,7 +64,10 @@ body {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px; flex: 1;
 }
-.header-logo img { vertical-align: middle; margin-right: 4px; }
+.header-logo img { vertical-align: middle; }
+.logo-dark  { display: none; }
+[data-theme="dark"] .logo-light { display: none; }
+[data-theme="dark"] .logo-dark  { display: inline; }
 .btn-icon {
   width: 40px; height: 40px; border-radius: 50%;
   background: var(--surface2); border: none; cursor: pointer;
@@ -132,7 +135,7 @@ body {
 .cat-btn .cat-emoji { font-size: 16px; flex-shrink: 0; }
 .cat-btn.active {
   background: var(--primary); border-color: var(--primary);
-  color: #fff; box-shadow: 0 3px 12px rgba(255,107,53,.3);
+  color: #fff; box-shadow: 0 3px 12px rgba(255,160,0,.3);
 }
 .cat-btn:active { transform: scale(.94); }
 
@@ -204,7 +207,7 @@ body {
   color: #fff; font-size: 20px; font-weight: 300;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background .15s, transform .1s;
-  box-shadow: 0 3px 8px rgba(255,107,53,.35);
+  box-shadow: 0 3px 8px rgba(255,160,0,.35);
 }
 .btn-add:active { transform: scale(.88); background: var(--primary-dk); }
 
@@ -325,10 +328,10 @@ body {
   border: none; border-radius: 50px;
   font-size: 16px; font-weight: 700; color: #fff;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-  box-shadow: 0 6px 20px rgba(255,107,53,.4);
+  box-shadow: 0 6px 20px rgba(255,160,0,.4);
   transition: transform .1s, box-shadow .1s;
 }
-.btn-checkout:active { transform: scale(.97); box-shadow: 0 3px 10px rgba(255,107,53,.3); }
+.btn-checkout:active { transform: scale(.97); box-shadow: 0 3px 10px rgba(255,160,0,.3); }
 .btn-checkout:disabled { opacity: .5; pointer-events: none; }
 .btn-ver-carrito { background: var(--surface2); color: var(--text2); box-shadow: none; }
 .btn-ver-carrito:active { box-shadow: none; }
@@ -430,7 +433,7 @@ body {
   padding: 14px 32px; background: var(--primary);
   border: none; border-radius: 50px;
   font-size: 15px; font-weight: 700; color: #fff;
-  cursor: pointer; box-shadow: 0 4px 16px rgba(255,107,53,.35);
+  cursor: pointer; box-shadow: 0 4px 16px rgba(255,160,0,.35);
 }
 
 /* ===== Bottom nav ===== */
@@ -526,7 +529,7 @@ body {
   background: linear-gradient(135deg, var(--primary), #ff9f1c);
   color: #fff; font-size: 26px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(255,107,53,.35);
+  box-shadow: 0 4px 16px rgba(255,160,0,.35);
   flex-shrink: 0;
 }
 
@@ -685,7 +688,7 @@ body {
   font-size: 20px; font-weight: 300;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background .15s, transform .1s;
-  box-shadow: 0 3px 8px rgba(255,107,53,.35);
+  box-shadow: 0 3px 8px rgba(255,160,0,.35);
 }
 .pd-qty-btn:active { transform: scale(.92); background: var(--primary-dk); }
 .pd-qty-label {
