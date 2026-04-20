@@ -24,10 +24,10 @@
 }
 
 [data-theme="dark"] {
-  --bg:          #0f0f11;
-  --surface:     #1c1c1f;
-  --surface2:    #2a2a2e;
-  --border:      #333338;
+  --bg:          #32373D;
+  --surface:     #3d4248;
+  --surface2:    #484e55;
+  --border:      #555b63;
   --text:        #f0f0f0;
   --text2:       #aaaaaa;
   --text3:       #666666;
@@ -150,6 +150,15 @@ body {
   gap: 12px;
   padding: 0 16px;
   padding-bottom: calc(var(--nav-h) + 24px);
+}
+@media (min-width: 768px) {
+  .products { grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 0 24px; padding-bottom: calc(var(--nav-h) + 24px); }
+}
+@media (min-width: 1024px) {
+  .products { grid-template-columns: repeat(5, 1fr); gap: 20px; padding: 0 32px; padding-bottom: calc(var(--nav-h) + 32px); }
+}
+@media (min-width: 1280px) {
+  .products { grid-template-columns: repeat(6, 1fr); }
 }
 
 .card {
