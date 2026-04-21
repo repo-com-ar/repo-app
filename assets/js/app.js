@@ -50,8 +50,8 @@ const tema = {
     if (btn) btn.innerHTML = t === 'dark'
       ? `<i class="fa-solid fa-sun" style="font-size:18px"></i>`
       : `<i class="fa-solid fa-moon" style="font-size:18px"></i>`;
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#32373D' : '#ffffff');
+    const metaTheme = document.getElementById('metaThemeColor');
+    if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#3d4248' : '#ffffff');
   },
 };
 

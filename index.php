@@ -1,14 +1,26 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#ffffff" id="metaThemeColor">
+  <script>
+    (function(){
+      var t = localStorage.getItem('tema') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('metaThemeColor').setAttribute('content', t === 'dark' ? '#3d4248' : '#ffffff');
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Pedidos de comestibles rápido y fácil">
   <title>Repo Super Online</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="assets/img/splash.png">
+  <link rel="manifest" href="manifest.php">
   <link rel="stylesheet" href="assets/css/app.css?v=<?= time() ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
