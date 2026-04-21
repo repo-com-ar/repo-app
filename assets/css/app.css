@@ -3,9 +3,9 @@
 
 :root {
   /* Light mode */
-  --bg:          #f5f5f5;
+  --bg:          #eaeaea;
   --surface:     #ffffff;
-  --surface2:    #f0f0f0;
+  --surface2:    #f5f5f5;
   --border:      #e0e0e0;
   --text:        #1a1a1a;
   --text2:       #666666;
@@ -171,7 +171,7 @@ body {
 }
 
 .card {
-  background: var(--surface);
+  background: var(--surface2);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -188,13 +188,14 @@ body {
   aspect-ratio: 1 / 1;
   overflow: hidden;
   user-select: none;
+  border-radius: var(--radius);
 }
 .card-thumb img {
   width: 100%; height: 100%;
   object-fit: contain;
   display: block;
 }
-.card-body { padding: 10px 12px 12px; }
+.card-body { padding: 10px 12px 12px; background: var(--surface2); }
 .card-name {
   font-size: 13px; font-weight: 700; color: var(--text);
   line-height: 1.3; margin-bottom: 2px;
@@ -226,8 +227,8 @@ body {
 }
 .btn-minus {
   width: 28px; height: 28px; border-radius: 50%;
-  background: var(--surface2); border: none;
-  color: var(--text); font-size: 18px;
+  background: #d0d0d0; border: none;
+  color: #111; font-size: 18px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background .15s;
 }

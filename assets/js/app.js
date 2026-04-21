@@ -278,9 +278,8 @@ function renderProducts(lista) {
         <div class="card-thumb"><img src="${p.imagen}" alt="${p.nombre}" loading="lazy" width="72" height="72"></div>
         <div class="card-body">
           <div class="card-name">${p.nombre}</div>
-          <div class="card-unit">por ${p.unidad}</div>
           <div class="card-footer">
-            <div class="card-price">$${p.precio.toLocaleString('es-AR')} <span>/ ${p.unidad}</span></div>
+            <div class="card-price">$${p.precio.toLocaleString('es-AR')}</div>
             ${controles}
           </div>
         </div>
@@ -936,15 +935,15 @@ function openProductModal(id) {
   document.getElementById('pdImg').alt = p.nombre;
   document.getElementById('pdName').textContent = p.nombre;
   document.getElementById('pdUnit').textContent = 'por ' + p.unidad;
-  document.getElementById('pdPrice').textContent = '$' + p.precio.toLocaleString('es-AR') + ' / ' + p.unidad;
+  document.getElementById('pdPrice').textContent = '$' + p.precio.toLocaleString('es-AR');
 
   const stockEl = document.getElementById('pdStock');
-  if (p.stock) {
-    stockEl.textContent = 'Disponible';
-    stockEl.className = 'product-detail-stock in-stock';
-  } else {
+  if (!p.stock) {
     stockEl.textContent = 'Sin stock';
     stockEl.className = 'product-detail-stock out-stock';
+  } else {
+    stockEl.textContent = '';
+    stockEl.className = '';
   }
 
   renderDetailActions();
