@@ -181,7 +181,7 @@
       </div>
 
       <button type="submit" class="btn-checkout" id="btnConfirmar">
-        Confirmar pedido ✓
+        Confirmar pedido
       </button>
     </form>
   </div>
@@ -202,7 +202,7 @@
       <input type="email" id="pCorreo" placeholder="email@ejemplo.com" autocomplete="email">
     </div>
     <div class="form-group">
-      <label>Teléfono</label>
+      <label>Celular</label>
       <input type="tel" id="pTelefono" placeholder="Ej: 11 2345-6789" autocomplete="tel">
     </div>
     <div class="form-group">

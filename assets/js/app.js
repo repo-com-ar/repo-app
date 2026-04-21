@@ -252,7 +252,7 @@ function renderProducts(lista) {
     return;
   }
   if (!lista.length) {
-    grid.innerHTML = `<div class="empty"><div class="empty-icon"><img src="${OM}1F50D.svg" alt="sin resultados" width="56" height="56"></div><p>No hay productos para esta búsqueda</p></div>`;
+    grid.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fa-solid fa-magnifying-glass" style="font-size:56px"></i></div><p>No hay productos para esta búsqueda</p></div>`;
     return;
   }
 
@@ -264,13 +264,14 @@ function renderProducts(lista) {
     const qty = cart.qty(p.id);
     const stockMax = p.stock_actual ?? Infinity;
     const topado  = qty >= stockMax;
+    const pJson = JSON.stringify(p).replace(/"/g,'&quot;');
     const controles = qty > 0
-      ? `<div class="card-qty-wrap">
-           <button class="btn-minus" onclick="cart.remove(${p.id});event.stopPropagation()">−</button>
-           <span class="qty-label">${qty}</span>
-           <button class="btn-add" onclick="cart.add(${JSON.stringify(p).replace(/"/g,'&quot;')});event.stopPropagation()" ${topado ? 'disabled' : ''}>+</button>
+      ? `<div class="card-qty-row" onclick="event.stopPropagation()">
+           <button class="card-qty-btn" onclick="cart.remove(${p.id});event.stopPropagation()">−</button>
+           <span class="card-qty-label">${qty}</span>
+           <button class="card-qty-btn" onclick="cart.add(${pJson});event.stopPropagation()" ${topado ? 'disabled' : ''}>+</button>
          </div>`
-      : `<button class="btn-add" onclick="cart.add(${JSON.stringify(p).replace(/"/g,'&quot;')});event.stopPropagation()">+</button>`;
+      : `<button class="card-add-btn" onclick="cart.add(${pJson});event.stopPropagation()">Agregar al carrito</button>`;
 
     return `
       <div class="card ${!p.stock ? 'sin-stock' : ''}" onclick="openProductModal(${p.id})">
@@ -278,10 +279,8 @@ function renderProducts(lista) {
         <div class="card-thumb"><img src="${p.imagen}" alt="${p.nombre}" loading="lazy" width="72" height="72"></div>
         <div class="card-body">
           <div class="card-name">${p.nombre}</div>
-          <div class="card-footer">
-            <div class="card-price">$${p.precio.toLocaleString('es-AR')}</div>
-            ${controles}
-          </div>
+          <div class="card-price">$${p.precio.toLocaleString('es-AR')}</div>
+          ${controles}
         </div>
       </div>`;
   }).join('');
