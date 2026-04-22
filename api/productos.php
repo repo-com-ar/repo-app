@@ -28,7 +28,7 @@ $q   = trim($_GET['q'] ?? '');
 try {
     $pdo = getDB();
 
-    $sql    = "SELECT id, codigo, ean, nombre, precio, categoria, imagen, unidad, stock_actual, stock_minimo, stock_recomendado FROM productos WHERE stock_actual > 0";
+    $sql    = "SELECT id, sku, ean, nombre, precio_venta AS precio, categoria, imagen, unidad, stock_actual, stock_minimo, stock_recomendado FROM productos WHERE stock_actual > 0";
     $params = [];
 
     if ($cat !== 'todos') {
