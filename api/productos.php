@@ -11,7 +11,7 @@
  *   q         (string) — texto libre para buscar por nombre
  *
  * Respuesta:
- *   { ok: true, data: [ { id, nombre, precio, categoria, emoji, imagen, unidad, stock, stock_actual, stock_minimo, stock_recomendado } ] }
+ *   { ok: true, data: [ { id, nombre, precio, categoria, imagen, unidad, stock, stock_actual, stock_minimo, stock_recomendado } ] }
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -28,7 +28,7 @@ $q   = trim($_GET['q'] ?? '');
 try {
     $pdo = getDB();
 
-    $sql    = "SELECT id, nombre, precio, categoria, emoji, imagen, unidad, stock_actual, stock_minimo, stock_recomendado FROM productos WHERE stock_actual > 0";
+    $sql    = "SELECT id, codigo, ean, nombre, precio, categoria, imagen, unidad, stock_actual, stock_minimo, stock_recomendado FROM productos WHERE stock_actual > 0";
     $params = [];
 
     if ($cat !== 'todos') {
