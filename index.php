@@ -143,47 +143,70 @@
   <div class="modal-backdrop" onclick="closeCheckout()"></div>
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Completar pedido</div>
+    <button class="btn-close product-modal-close" onclick="closeCheckout()">✕</button>
 
-    <!-- Confirmación -->
+    <!-- Paso 1: Datos (solo sin sesión) -->
+    <div id="checkoutStepDatos" style="display:none">
+      <div class="modal-title">Tus datos</div>
+      <div class="form-group">
+        <label>Nombre y apellido *</label>
+        <input type="text" id="fCliente" placeholder="Ej: María González" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Correo electrónico *</label>
+        <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Celular *</label>
+        <input type="tel" id="fTelefono" placeholder="Ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]+" title="Solo dígitos, sin espacios ni guiones">
+      </div>
+      <div class="form-group">
+        <label>Dirección de entrega *</label>
+        <input type="text" id="fDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
+      </div>
+      <textarea id="fNotas" style="display:none"></textarea>
+      <button class="btn-checkout" onclick="goToCheckoutConfirm()">Continuar</button>
+    </div>
+
+    <!-- Paso 2: Confirmar (siempre, antes de enviar) -->
+    <div id="checkoutStepConfirmar" style="display:none">
+      <div class="modal-title">Confirmar pedido</div>
+
+      <div class="co-user-card">
+        <div class="co-avatar" id="coAvatar"></div>
+        <div class="co-user-info">
+          <div class="co-user-name" id="coNombre"></div>
+          <div class="co-user-detail"><i class="fa-solid fa-envelope co-detail-icon"></i><span id="coEmail"></span></div>
+          <div class="co-user-detail"><i class="fa-solid fa-phone co-detail-icon"></i><span id="coTelefono"></span></div>
+        </div>
+      </div>
+
+      <div class="co-section-label">Dirección de entrega</div>
+      <div class="co-address" id="coDireccion"></div>
+
+      <div class="co-section-label">Detalle del pedido</div>
+      <div id="coItemsList" class="co-items"></div>
+      <div class="co-total-row">
+        <span>Total</span>
+        <span id="coTotal"></span>
+      </div>
+
+      <button class="btn-checkout" id="btnConfirmar" onclick="submitOrder()">
+        Confirmar y enviar pedido
+      </button>
+      <button class="otp-back-btn" id="btnVolverDatos" onclick="backToCheckoutDatos()">← Editar datos</button>
+    </div>
+
+    <!-- Paso 3: Éxito -->
     <div class="confirm-screen" id="confirmScreen">
       <div class="confirm-icon">
-        <img src="https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/2705.svg" alt="confirmado" width="72" height="72">
+        <i class="fa-solid fa-circle-check" style="font-size:72px;color:#22c55e"></i>
       </div>
       <div class="confirm-title">¡Pedido recibido!</div>
       <div class="confirm-num" id="confirmNum">PED-XXXXXX</div>
       <div class="confirm-sub">Te contactaremos para coordinar la entrega.</div>
-      <button class="btn-nuevo" onclick="closeCheckout()">Seguir comprando</button>
+      <button class="btn-nuevo" onclick="verUltimoPedido()">Ver pedido</button>
     </div>
-
-    <!-- Formulario -->
-    <form id="checkoutForm" onsubmit="handleCheckout(event)">
-      <!-- Datos -->
-      <div class="form-group">
-        <label>Tu nombre *</label>
-        <input type="text" id="fCliente" placeholder="Ej: María González" required autocomplete="name">
-      </div>
-      <div class="form-group">
-        <label>Correo electrónico *</label>
-        <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" required autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label>Celular *</label>
-        <input type="tel" id="fTelefono" placeholder="Ej: 11 2345-6789" required autocomplete="tel">
-      </div>
-      <div class="form-group">
-        <label>Dirección de entrega *</label>
-        <input type="text" id="fDireccion" placeholder="Calle, número, piso/depto" required autocomplete="street-address">
-      </div>
-      <div class="form-group">
-        <label>Notas adicionales</label>
-        <textarea id="fNotas" placeholder="Indicaciones especiales, horario preferido..."></textarea>
-      </div>
-
-      <button type="submit" class="btn-checkout" id="btnConfirmar">
-        Confirmar pedido
-      </button>
-    </form>
   </div>
 </div>
 
@@ -224,6 +247,38 @@
     <button class="btn-checkout" id="btnGuardarPerfil" onclick="guardarPerfil()">
       Guardar cambios
     </button>
+  </div>
+</div>
+
+<!-- ===== Modal Login OTP ===== -->
+<div class="modal-wrap" id="otpModal">
+  <div class="modal-backdrop" onclick="closeOtpModal()"></div>
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="btn-close product-modal-close" onclick="closeOtpModal()">✕</button>
+
+    <!-- Paso 1: correo -->
+    <div id="otpStep1">
+      <div class="modal-title">Iniciar sesión</div>
+      <p class="otp-sub">Ingresá tu correo para recibir un código de acceso.</p>
+      <div class="form-group">
+        <label>Correo electrónico *</label>
+        <input type="email" id="otpEmail" placeholder="tu@correo.com" inputmode="email" autocomplete="email">
+      </div>
+      <button class="btn-checkout" id="btnEnviarOtp" onclick="sendOtp()">Enviar código</button>
+    </div>
+
+    <!-- Paso 2: código OTP -->
+    <div id="otpStep2" style="display:none">
+      <div class="modal-title">Verificar código</div>
+      <p class="otp-sub">Enviamos un código de 6 dígitos a <strong id="otpEmailLabel"></strong></p>
+      <div class="form-group">
+        <label>Código de verificación *</label>
+        <input type="text" id="otpCodigo" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      </div>
+      <button class="btn-checkout" id="btnVerificarOtp" onclick="verifyOtp()">Ingresar</button>
+      <button class="otp-back-btn" onclick="backOtpStep()">← Cambiar correo</button>
+    </div>
   </div>
 </div>
 

@@ -22,7 +22,7 @@ error_reporting(E_ALL);
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
@@ -33,6 +33,7 @@ if (!file_exists($configPath)) {
     exit;
 }
 require_once $configPath;
+require_once __DIR__ . '/lib/jwt.php';
 
 try {
     $pdo = getDB();
@@ -187,7 +188,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'estado'    => 'pendiente',
         ];
 
-        echo json_encode(['ok' => true, 'pedido' => $pedido]);
+        $token = app_jwt_encode([
+            'cliente_id' => $clienteId,
+            'iat'        => time(),
+            'exp'        => time() + APP_JWT_TTL,
+        ]);
+
+        echo json_encode(['ok' => true, 'pedido' => $pedido, 'token' => $token]);
     } catch (Exception $e) {
         $pdo->rollBack();
         http_response_code(500);

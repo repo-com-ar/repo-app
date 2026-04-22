@@ -3,21 +3,31 @@ const OM = 'https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/';
 // Pexels CDN — fotos gratuitas (pexels.com)
 function px(id) { return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=120&h=120&fit=crop`; }
 
-/* ===== Cookies ===== */
-function setCookie(name, value, days) {
-  var d = new Date();
-  d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-  document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+/* ===== Auth JWT ===== */
+function getToken() { return localStorage.getItem('app_token'); }
+function setToken(token) { localStorage.setItem('app_token', token); }
+function removeToken() { localStorage.removeItem('app_token'); }
+
+function getClienteId() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) { removeToken(); return null; }
+    return payload.cliente_id || null;
+  } catch { return null; }
 }
-function getCookie(name) {
-  var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? decodeURIComponent(match[2]) : null;
+
+function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
 }
-function deleteCookie(name) {
-  document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax';
-}
+
 function cerrarSesion() {
-  deleteCookie('cliente_id');
+  removeToken();
   location.reload();
 }
 
@@ -29,6 +39,8 @@ const state = {
   categoriaActual: 'todos',
   busqueda: '',
   loading: false,
+  clienteLat: null,
+  clienteLng: null,
 };
 
 /* ===== Theme ===== */
@@ -115,18 +127,13 @@ async function notificarWhatsApp(pedido, datos) {
       parametros:   '',
       tags:         'pedido',
     };
-    console.log('[WA] payload →', payload);
-    const waRes  = await fetch('api/notificar_whatsapp', {
+    await fetch('api/notificar_whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const waText = await waRes.text();
-    console.log('[WA] status:', waRes.status, '| respuesta:', waText);
-    showToast('[WA] ' + waRes.status + ' ' + waText.slice(0, 80));
-  } catch (err) {
-    console.error('[WA] error de red:', err);
-    showToast('[WA] error de red: ' + err.message);
+  } catch {
+    // silencioso — la notificación WA no debe interrumpir el flujo
   }
 }
 
@@ -173,7 +180,7 @@ async function notificarClienteWA(pedido, datos) {
 }
 
 function registrarEvento(detalle) {
-  const clienteId = parseInt(getCookie('cliente_id')) || 0;
+  const clienteId = getClienteId() || 0;
   fetch('api/eventos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -342,48 +349,83 @@ function openCheckout() {
     return;
   }
   closeCart();
-  renderSummary();
-  document.getElementById('checkoutModal').classList.add('open');
   document.getElementById('confirmScreen').classList.remove('show');
-  document.getElementById('checkoutForm').style.display = '';
+
+  if (getClienteId()) {
+    populateConfirmStep();
+    document.getElementById('checkoutStepDatos').style.display    = 'none';
+    document.getElementById('checkoutStepConfirmar').style.display = '';
+    document.getElementById('btnVolverDatos').style.display        = 'none';
+  } else {
+    document.getElementById('checkoutStepDatos').style.display    = '';
+    document.getElementById('checkoutStepConfirmar').style.display = 'none';
+  }
+
+  document.getElementById('checkoutModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
+
+function goToCheckoutConfirm() {
+  const nombre    = document.getElementById('fCliente').value.trim();
+  const email     = document.getElementById('fEmail').value.trim();
+  const tel       = document.getElementById('fTelefono').value.trim();
+  const direccion = document.getElementById('fDireccion').value.trim();
+
+  if (!nombre)    { showToast('Ingresá tu nombre y apellido'); return; }
+  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showToast('Ingresá un correo electrónico válido'); return;
+  }
+  if (!/^[0-9]+$/.test(tel)) {
+    showToast('El celular solo debe contener dígitos (sin espacios ni guiones)'); return;
+  }
+
+  populateConfirmStep();
+  document.getElementById('checkoutStepDatos').style.display     = 'none';
+  document.getElementById('checkoutStepConfirmar').style.display  = '';
+  document.getElementById('btnVolverDatos').style.display         = '';
+}
+
+function populateConfirmStep() {
+  const nombre    = document.getElementById('fCliente').value.trim();
+  const email     = document.getElementById('fEmail').value.trim();
+  const telefono  = document.getElementById('fTelefono').value.trim();
+  const direccion = document.getElementById('fDireccion').value.trim();
+
+  const iniciales = nombre.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  document.getElementById('coAvatar').textContent    = iniciales || '?';
+  document.getElementById('coNombre').textContent    = nombre;
+  document.getElementById('coEmail').textContent     = email;
+  document.getElementById('coTelefono').textContent  = telefono;
+  document.getElementById('coDireccion').textContent = direccion;
+
+  document.getElementById('coItemsList').innerHTML = state.cart.map(i =>
+    `<div class="co-item">
+      <span class="co-item-name">${i.nombre} <span class="co-item-qty">×${i.cantidad}</span></span>
+      <span class="co-item-price">$${(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
+    </div>`).join('');
+  document.getElementById('coTotal').textContent = '$' + cart.total().toLocaleString('es-AR');
+}
+
+function backToCheckoutDatos() {
+  document.getElementById('checkoutStepConfirmar').style.display = 'none';
+  document.getElementById('checkoutStepDatos').style.display     = '';
+}
+
 function closeCheckout() {
   document.getElementById('checkoutModal').classList.remove('open');
   document.body.style.overflow = '';
 }
 
-function renderSummary() {
-  const el = document.getElementById('orderSummaryLines');
-  if (!el) return;
-  el.innerHTML = state.cart.map(i =>
-    `<div class="summary-line">
-       <span><img src="${i.imagen}" alt="${i.nombre}" width="18" height="18" style="vertical-align:middle;margin-right:4px"> ${i.nombre} ×${i.cantidad}</span>
-       <span>$${(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
-     </div>`).join('');
-  const totalEl = document.getElementById('summaryTotal');
-  if (totalEl) totalEl.textContent = cart.total().toLocaleString('es-AR');
-}
-
-async function handleCheckout(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btnConfirmar');
-  btn.disabled = true;
-
-  // Paso 1: Obtener ubicación (sin preguntar si ya fue otorgado el permiso)
-  btn.textContent = 'Obteniendo ubicación...';
+async function getCoords() {
   const geoOverlay = document.getElementById('geoOverlay');
-  let coords = { lat: null, lng: null };
-
   try {
-    // Consultar el estado del permiso sin dispararlo
     const permState = navigator.permissions
       ? (await navigator.permissions.query({ name: 'geolocation' })).state
       : 'prompt';
 
     if (permState === 'granted') {
-      // Ya tiene permiso: obtener posición directamente sin mostrar el overlay
-      coords = await new Promise(function(resolve) {
+      return await new Promise(function(resolve) {
         navigator.geolocation.getCurrentPosition(
           function(pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
           function()    { resolve({ lat: null, lng: null }); },
@@ -391,32 +433,21 @@ async function handleCheckout(e) {
         );
       });
     } else if (permState === 'denied') {
-      // Permiso denegado: continuar sin coordenadas
-      coords = { lat: null, lng: null };
+      return { lat: null, lng: null };
     } else {
-      // Estado 'prompt': mostrar el overlay por primera vez
-      coords = await new Promise(function(resolve) {
+      return await new Promise(function(resolve) {
         geoOverlay.classList.add('show');
         var btnPermit = document.getElementById('geoPermitir');
         var btnSkip   = document.getElementById('geoOmitir');
-
         function cleanup() {
           geoOverlay.classList.remove('show');
           btnPermit.onclick = null;
           btnSkip.onclick = null;
         }
-
-        btnSkip.onclick = function() {
-          cleanup();
-          resolve({ lat: null, lng: null });
-        };
-
+        btnSkip.onclick = function() { cleanup(); resolve({ lat: null, lng: null }); };
         btnPermit.onclick = function() {
           cleanup();
-          if (!navigator.geolocation) {
-            resolve({ lat: null, lng: null });
-            return;
-          }
+          if (!navigator.geolocation) { resolve({ lat: null, lng: null }); return; }
           navigator.geolocation.getCurrentPosition(
             function(pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
             function()    { resolve({ lat: null, lng: null }); },
@@ -425,17 +456,40 @@ async function handleCheckout(e) {
         };
       });
     }
-  } catch (err) {
-    // Si falla la API de permisos o geolocation, continuar sin coordenadas
+  } catch {
+    return { lat: null, lng: null };
+  }
+}
+
+let lastOrder = null;
+
+function verUltimoPedido() {
+  closeCheckout();
+  const pedidosTab = document.querySelector('.nav-tab[onclick*="pedidos"]');
+  selectTab('pedidos', pedidosTab);
+  if (lastOrder) {
+    setTimeout(() => openPedModal(lastOrder), 150);
+  }
+}
+
+async function submitOrder() {
+  const btn = document.getElementById('btnConfirmar');
+  btn.disabled = true;
+
+  let coords;
+  if (state.clienteLat && state.clienteLng) {
+    coords = { lat: state.clienteLat, lng: state.clienteLng };
+  } else {
+    btn.textContent = 'Obteniendo ubicación...';
+    coords = await getCoords();
   }
 
-  // Paso 2: Enviar pedido con coordenadas
   btn.textContent = 'Enviando...';
 
   const datos = {
     cliente:   document.getElementById('fCliente').value.trim(),
     correo:    document.getElementById('fEmail').value.trim(),
-    celular:  document.getElementById('fTelefono').value.trim(),
+    celular:   document.getElementById('fTelefono').value.trim(),
     direccion: document.getElementById('fDireccion').value.trim(),
     notas:     document.getElementById('fNotas').value.trim(),
     items:     state.cart,
@@ -446,27 +500,23 @@ async function handleCheckout(e) {
   try {
     const res = await enviarPedido(datos);
     if (res.ok) {
-      // Guardar cliente_id en cookie (365 días)
-      if (res.pedido && res.pedido.cliente_id) {
-        setCookie('cliente_id', res.pedido.cliente_id, 365);
-      }
-      document.getElementById('checkoutForm').style.display = 'none';
+      if (res.token) setToken(res.token);
+      lastOrder = { ...res.pedido, fecha: res.pedido.fecha || new Date().toISOString() };
+      document.getElementById('checkoutStepConfirmar').style.display = 'none';
       document.getElementById('confirmNum').textContent = res.pedido.numero;
       document.getElementById('confirmScreen').classList.add('show');
       notificarWhatsApp(res.pedido, datos);
       notificarClienteWA(res.pedido, datos);
       cart.clear();
     } else {
-      console.error('Error pedido:', res);
       showToast(res.error || 'Error al enviar el pedido. Intentá de nuevo.');
     }
-  } catch (err) {
-    console.error('Excepción pedido:', err);
+  } catch {
     showToast('Sin conexión. Verificá tu internet.');
   }
 
   btn.disabled = false;
-  btn.textContent = 'Confirmar pedido';
+  btn.textContent = 'Confirmar y enviar pedido';
 }
 
 /* ===== Categories ===== */
@@ -546,7 +596,7 @@ async function cargarMisPedidos() {
   const lista = document.getElementById('pedidosList');
   lista.innerHTML = `<div class="spinner"><div class="spin"></div></div>`;
 
-  const clienteId = getCookie('cliente_id');
+  const clienteId = getClienteId();
   if (!clienteId) {
     lista.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fa-solid fa-receipt" style="font-size:56px"></i></div><p>Aún no hiciste ningún pedido</p></div>`;
     return;
@@ -660,14 +710,15 @@ let perfilGeoLng = null;
 
 async function cargarPerfil() {
   const el = document.getElementById('perfilContenido');
-  const clienteId = getCookie('cliente_id');
+  const clienteId = getClienteId();
 
   if (!clienteId) {
     el.innerHTML = `
       <div class="perfil-empty">
         <div class="perfil-empty-icon"><i class="fa-solid fa-circle-user" style="font-size:56px"></i></div>
-        <p>Aún no tenés un perfil guardado.</p>
-        <small>Realizá tu primer pedido para crear tu perfil.</small>
+        <p>¡Bienvenido!</p>
+        <small>Iniciá sesión para ver tu perfil y tus pedidos anteriores.</small>
+        <button class="btn-checkout perfil-login-btn" onclick="openOtpModal()">Iniciar sesión / Crear cuenta</button>
       </div>`;
     return;
   }
@@ -675,7 +726,7 @@ async function cargarPerfil() {
   el.innerHTML = `<div class="spinner"><div class="spin"></div></div>`;
 
   try {
-    const res  = await fetch(`api/clientes?id=${clienteId}`);
+    const res  = await fetch('api/clientes', { headers: authHeaders() });
     const data = await res.json();
     if (data.ok && data.data) {
       perfilData = data.data;
@@ -795,7 +846,7 @@ function detectarUbicacionDirecta() {
     showToast('Tu dispositivo no soporta geolocalización');
     return;
   }
-  const clienteId = getCookie('cliente_id');
+  const clienteId = getClienteId();
   if (!clienteId || !perfilData) return;
 
   showToast('Detectando ubicación...');
@@ -807,8 +858,8 @@ function detectarUbicacionDirecta() {
       try {
         const res = await fetch('api/clientes', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: parseInt(clienteId), lat, lng }),
+          headers: authHeaders(),
+          body: JSON.stringify({ id: clienteId, lat, lng }),
         });
         const data = await res.json();
         if (data.ok) {
@@ -834,14 +885,14 @@ function detectarUbicacionDirecta() {
 
 /* Quitar ubicación directamente desde la vista de perfil */
 async function quitarUbicacionDirecta() {
-  const clienteId = getCookie('cliente_id');
+  const clienteId = getClienteId();
   if (!clienteId || !perfilData) return;
 
   try {
     const res = await fetch('api/clientes', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: parseInt(clienteId), lat: null, lng: null }),
+      headers: authHeaders(),
+      body: JSON.stringify({ id: clienteId, lat: null, lng: null }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -864,7 +915,7 @@ async function guardarPerfil() {
   const correo    = document.getElementById('pCorreo').value.trim();
   const celular  = document.getElementById('pTelefono').value.trim();
   const direccion = document.getElementById('pDireccion').value.trim();
-  const clienteId = getCookie('cliente_id');
+  const clienteId = getClienteId();
 
   if (!nombre) { showToast('El nombre es requerido'); return; }
 
@@ -873,7 +924,7 @@ async function guardarPerfil() {
   btn.textContent = 'Guardando...';
 
   const payload = {
-    id: parseInt(clienteId),
+    id: clienteId,
     nombre, correo: correo || null,
     celular: celular || null,
     direccion: direccion || null,
@@ -884,7 +935,7 @@ async function guardarPerfil() {
   try {
     const res = await fetch('api/clientes', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -1047,22 +1098,120 @@ window.addEventListener('popstate', function() {
   }
 });
 
+/* ===== OTP Login ===== */
+function openOtpModal() {
+  document.getElementById('otpStep1').style.display = '';
+  document.getElementById('otpStep2').style.display = 'none';
+  document.getElementById('otpEmail').value = '';
+  document.getElementById('otpCodigo').value = '';
+  document.getElementById('otpModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('otpEmail').focus(), 300);
+}
+
+function closeOtpModal() {
+  document.getElementById('otpModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function backOtpStep() {
+  document.getElementById('otpStep1').style.display = '';
+  document.getElementById('otpStep2').style.display = 'none';
+}
+
+async function sendOtp() {
+  const correo = document.getElementById('otpEmail').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    showToast('Ingresá un correo válido');
+    return;
+  }
+  const btn = document.getElementById('btnEnviarOtp');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'enviar', correo }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('otpEmailLabel').textContent = correo;
+      document.getElementById('otpStep1').style.display = 'none';
+      document.getElementById('otpStep2').style.display = '';
+      setTimeout(() => document.getElementById('otpCodigo').focus(), 300);
+    } else {
+      showToast(data.error || 'Error al enviar el código');
+    }
+  } catch {
+    showToast('Sin conexión');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar código';
+  }
+}
+
+async function verifyOtp() {
+  const correo = document.getElementById('otpEmail').value.trim();
+  const codigo = document.getElementById('otpCodigo').value.trim();
+  if (codigo.length !== 6) { showToast('Ingresá el código de 6 dígitos'); return; }
+
+  const btn = document.getElementById('btnVerificarOtp');
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'verificar', correo, codigo }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setToken(data.token);
+      closeOtpModal();
+      cargarPerfil();
+      // Pre-fill formulario de checkout
+      try {
+        const cliRes  = await fetch('api/clientes', { headers: authHeaders() });
+        const cliData = await cliRes.json();
+        if (cliData.ok && cliData.data) {
+          document.getElementById('fCliente').value   = cliData.data.nombre    || '';
+          document.getElementById('fEmail').value     = cliData.data.correo    || '';
+          document.getElementById('fTelefono').value  = cliData.data.celular   || '';
+          document.getElementById('fDireccion').value = cliData.data.direccion || '';
+          state.clienteLat = cliData.data.lat ? parseFloat(cliData.data.lat) : null;
+          state.clienteLng = cliData.data.lng ? parseFloat(cliData.data.lng) : null;
+        }
+      } catch {}
+      showToast(data.nuevo ? '¡Cuenta creada! Bienvenido.' : '¡Sesión iniciada!');
+    } else {
+      showToast(data.error || 'Código incorrecto');
+    }
+  } catch {
+    showToast('Sin conexión');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ingresar';
+  }
+}
+
 /* ===== Init ===== */
 document.addEventListener('DOMContentLoaded', async () => {
   tema.init();
   cart.load();
 
-  // Auto-fill datos del cliente desde cookie
-  var clienteId = getCookie('cliente_id');
-  if (clienteId) {
+  // Auto-fill datos del cliente desde JWT
+  if (getClienteId()) {
     try {
-      var cliRes = await fetch('api/clientes?id=' + clienteId);
+      var cliRes = await fetch('api/clientes', { headers: authHeaders() });
       var cliData = await cliRes.json();
       if (cliData.ok && cliData.data) {
         document.getElementById('fCliente').value = cliData.data.nombre || '';
         document.getElementById('fEmail').value = cliData.data.correo || '';
         document.getElementById('fTelefono').value = cliData.data.celular || '';
         document.getElementById('fDireccion').value = cliData.data.direccion || '';
+        state.clienteLat = cliData.data.lat ? parseFloat(cliData.data.lat) : null;
+        state.clienteLng = cliData.data.lng ? parseFloat(cliData.data.lng) : null;
       }
     } catch (e) { /* silencioso */ }
   }

@@ -787,3 +787,47 @@ body {
 .pm-item-cant   { font-size: .78rem; color: var(--text3); }
 .pm-item-precio { font-size: .9rem; font-weight: 600; color: var(--text); }
 .pm-total-row { display: flex; justify-content: space-between; padding-top: 12px; font-weight: 800; font-size: 1.05rem; color: var(--text); }
+
+/* ===== Checkout confirm step ===== */
+.co-user-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 18px;
+}
+.co-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 800; flex-shrink: 0;
+}
+.co-user-info { display: flex; flex-direction: column; gap: 4px; }
+.co-user-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.co-user-detail { font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+.co-detail-icon { font-size: 11px; color: var(--text3); }
+.co-section-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.co-address {
+  font-size: 14px; color: var(--text); background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 11px 14px; margin-bottom: 18px;
+}
+.co-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.co-item { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.co-item-name { color: var(--text); }
+.co-item-qty { color: var(--text3); font-size: 12px; }
+.co-item-price { font-weight: 600; color: var(--text); }
+.co-total-row {
+  display: flex; justify-content: space-between;
+  font-size: 16px; font-weight: 800; color: var(--text);
+  border-top: 1.5px solid var(--border); padding-top: 10px; margin-bottom: 20px;
+}
+
+/* ===== OTP Login ===== */
+.otp-sub { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+.otp-sub strong { color: var(--text); }
+.otp-back-btn {
+  display: block; width: 100%; margin-top: 12px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; color: var(--text3); text-align: center; padding: 8px;
+}
+.otp-back-btn:hover { color: var(--text2); }
+.perfil-login-btn { margin-top: 20px; width: 100%; }
