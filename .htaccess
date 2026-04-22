@@ -4,6 +4,9 @@ RewriteEngine On
 # Redirects
 Redirect 301 /android /
 
+# Abrir app con carrito visible
+RewriteRule ^carrito$ index.php?carrito=1 [L,QSA]
+
 # Bloquear acceso directo con extensión .php
 RewriteCond %{THE_REQUEST} \.php[\s?/] [NC]
 RewriteRule ^(.+?)\.php(/.*)?$ /$1$2 [R=301,L,NE]

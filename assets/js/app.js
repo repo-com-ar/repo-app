@@ -31,6 +31,18 @@ function cerrarSesion() {
   location.reload();
 }
 
+function getSessionId() {
+  let sid = localStorage.getItem('app_session_id');
+  if (!sid) {
+    sid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+    localStorage.setItem('app_session_id', sid);
+  }
+  return sid;
+}
+
 /* ===== State ===== */
 let pedidoMinimo = 0;
 const state = {
@@ -190,6 +202,20 @@ function registrarEvento(detalle) {
 
 /* ===== Cart ===== */
 const cart = {
+  _syncTimer: null,
+  sync() {
+    if (!getClienteId()) return;
+    clearTimeout(this._syncTimer);
+    this._syncTimer = setTimeout(async () => {
+      try {
+        await fetch('api/carritos', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ session_id: getSessionId(), items: state.cart, total: this.total() }),
+        });
+      } catch { /* silencioso */ }
+    }, 1500);
+  },
   add(producto) {
     const idx = state.cart.findIndex(i => i.id === producto.id);
     if (idx >= 0) {
@@ -199,7 +225,7 @@ const cart = {
       if ((producto.stock_actual ?? 1) < 1) return;
       state.cart.push({ ...producto, cantidad: 1 });
     }
-    this.save(); this.updateUI();
+    this.save(); this.updateUI(); this.sync();
     registrarEvento('Agregó al carrito: ' + producto.nombre);
   },
   remove(id) {
@@ -212,7 +238,7 @@ const cart = {
     } else {
       state.cart.splice(idx, 1);
     }
-    this.save(); this.updateUI();
+    this.save(); this.updateUI(); this.sync();
   },
   qty(id) {
     return state.cart.find(i => i.id === id)?.cantidad || 0;
@@ -487,14 +513,15 @@ async function submitOrder() {
   btn.textContent = 'Enviando...';
 
   const datos = {
-    cliente:   document.getElementById('fCliente').value.trim(),
-    correo:    document.getElementById('fEmail').value.trim(),
-    celular:   document.getElementById('fTelefono').value.trim(),
-    direccion: document.getElementById('fDireccion').value.trim(),
-    notas:     document.getElementById('fNotas').value.trim(),
-    items:     state.cart,
-    lat:       coords.lat,
-    lng:       coords.lng,
+    cliente:    document.getElementById('fCliente').value.trim(),
+    correo:     document.getElementById('fEmail').value.trim(),
+    celular:    document.getElementById('fTelefono').value.trim(),
+    direccion:  document.getElementById('fDireccion').value.trim(),
+    notas:      document.getElementById('fNotas').value.trim(),
+    items:      state.cart,
+    lat:        coords.lat,
+    lng:        coords.lng,
+    session_id: getSessionId(),
   };
 
   try {
@@ -1214,6 +1241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.clienteLng = cliData.data.lng ? parseFloat(cliData.data.lng) : null;
       }
     } catch (e) { /* silencioso */ }
+    // Sincronizar carrito local con el servidor al iniciar sesión
+    if (state.cart.length) cart.sync();
   }
 
   // Cargar config
@@ -1235,6 +1264,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const productoId = parseInt(urlParams.get('producto'));
   if (productoId && state.productos.length) {
     openProductModal(productoId);
+  }
+
+  // Abrir carrito si viene por URL (/carrito o ?carrito=1)
+  if (window.location.pathname.endsWith('/carrito') || urlParams.get('carrito') === '1') {
+    openCart();
   }
 
   // Search

@@ -175,6 +175,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->commit();
 
+        // Marcar carrito como exitoso (fuera de la transacción del pedido)
+        try {
+            $sessionId = trim($body['session_id'] ?? '');
+            if ($sessionId !== '') {
+                $stmtFindCart = $pdo->prepare(
+                    "SELECT id FROM carritos WHERE usuario_id = ? AND session_id = ? AND estado IN ('activo','abandonado') ORDER BY updated_at DESC LIMIT 1"
+                );
+                $stmtFindCart->execute([$clienteId, $sessionId]);
+            } else {
+                $stmtFindCart = $pdo->prepare(
+                    "SELECT id FROM carritos WHERE usuario_id = ? AND estado IN ('activo','abandonado') ORDER BY updated_at DESC LIMIT 1"
+                );
+                $stmtFindCart->execute([$clienteId]);
+            }
+            $cartRow = $stmtFindCart->fetch();
+
+            if ($cartRow) {
+                $pdo->prepare("UPDATE carritos SET estado = 'exitoso' WHERE id = ?")
+                    ->execute([$cartRow['id']]);
+            } else {
+                // Pedido realizado sin carrito previo (guest): crear registro exitoso
+                $pdo->prepare("INSERT INTO carritos (usuario_id, session_id, estado, total) VALUES (?, ?, 'exitoso', ?)")
+                    ->execute([$clienteId, $sessionId, $total]);
+                $newCartId = (int)$pdo->lastInsertId();
+                $stmtCI = $pdo->prepare(
+                    "INSERT INTO carritos_items (carrito_id, producto_id, nombre, precio, cantidad) VALUES (?, ?, ?, ?, ?)"
+                );
+                foreach ($body['items'] as $item) {
+                    $stmtCI->execute([
+                        $newCartId,
+                        isset($item['id']) ? (int)$item['id'] : null,
+                        $item['nombre'],
+                        (float)$item['precio'],
+                        (int)($item['cantidad'] ?? 1),
+                    ]);
+                }
+            }
+        } catch (Exception $e) { /* silencioso: el pedido ya fue creado */ }
+
         $pedido = [
             'numero'    => $numero,
             'fecha'     => date('Y-m-d H:i:s'),
