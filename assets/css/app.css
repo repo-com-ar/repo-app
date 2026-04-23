@@ -824,10 +824,36 @@ body {
 /* ===== OTP Login ===== */
 .otp-sub { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
 .otp-sub strong { color: var(--text); }
-.otp-back-btn {
-  display: block; width: 100%; margin-top: 12px;
-  background: none; border: none; cursor: pointer;
-  font-size: 14px; color: var(--text3); text-align: center; padding: 8px;
+.otp-actions { display: flex; gap: 10px; margin-top: 10px; }
+.otp-actions .btn-checkout { flex: 1 1 0; padding: 14px 8px; font-size: 14px; }
+.btn-checkout-secondary {
+  background: var(--qty-bg);
+  color: var(--text2);
 }
-.otp-back-btn:hover { color: var(--text2); }
+.otp-boxes {
+  display: flex; justify-content: center; gap: 8px;
+  margin: 8px 0 20px;
+}
+.otp-box {
+  width: 44px; height: 54px;
+  text-align: center;
+  font-size: 22px; font-weight: 700;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  caret-color: var(--primary);
+  transition: border-color .15s, transform .1s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.otp-box::-webkit-outer-spin-button,
+.otp-box::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.otp-box:focus { border-color: var(--primary); transform: scale(1.05); }
+.otp-box:not(:placeholder-shown) { border-color: var(--primary); }
+@media (max-width: 360px) {
+  .otp-boxes { gap: 6px; }
+  .otp-box { width: 38px; height: 48px; font-size: 20px; }
+}
 .perfil-login-btn { margin-top: 20px; width: 100%; }

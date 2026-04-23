@@ -24,6 +24,7 @@ if (!$payload || empty($payload['cliente_id'])) {
     exit;
 }
 $clienteId = (int)$payload['cliente_id'];
+app_touch_last_seen($pdo, $clienteId);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

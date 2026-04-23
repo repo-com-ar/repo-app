@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $payload = app_jwt_from_request();
     if ($payload && !empty($payload['cliente_id'])) {
         $id = (int)$payload['cliente_id'];
+        app_touch_last_seen($pdo, $id);
     } else {
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     }

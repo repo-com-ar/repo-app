@@ -29,6 +29,20 @@ function app_jwt_from_request(): ?array {
     return null;
 }
 
+function app_touch_last_seen(PDO $pdo, int $clienteId): void {
+    if ($clienteId <= 0) return;
+    try {
+        $pdo->prepare("UPDATE clientes SET last_seen = NOW() WHERE id = ?")->execute([$clienteId]);
+    } catch (Throwable $e) {
+        try {
+            $pdo->exec("ALTER TABLE clientes ADD COLUMN last_seen DATETIME NULL DEFAULT NULL, ADD INDEX idx_last_seen (last_seen)");
+            $pdo->prepare("UPDATE clientes SET last_seen = NOW() WHERE id = ?")->execute([$clienteId]);
+        } catch (Throwable $e2) {
+            // silencioso: no rompemos la request del cliente si el heartbeat falla
+        }
+    }
+}
+
 function _app_b64u(string $s): string {
     return rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
 }

@@ -113,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jwtPayload = app_jwt_from_request();
         if ($jwtPayload && !empty($jwtPayload['cliente_id'])) {
             $clienteId = (int)$jwtPayload['cliente_id'];
+            app_touch_last_seen($pdo, $clienteId);
             $pdo->prepare("UPDATE clientes SET nombre = ?, celular = ?, direccion = ?, correo = ?, updated_at = NOW() WHERE id = ?")
                 ->execute([$clienteNombre, $clienteTel, $clienteDir, $clienteCorreo ?: null, $clienteId]);
         } else {

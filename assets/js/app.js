@@ -411,8 +411,7 @@ async function checkoutEmailContinuar() {
       document.getElementById('checkoutOtpEmailLabel').textContent = email;
       document.getElementById('checkoutStepEmail').style.display   = 'none';
       document.getElementById('checkoutStepOtp').style.display     = '';
-      document.getElementById('fOtpCodigo').value = '';
-      document.getElementById('fOtpCodigo').focus();
+      clearOtpBoxes('fOtpBoxes');
     } else {
       setToken(data.token);
       document.getElementById('fCliente').value   = '';
@@ -432,7 +431,7 @@ async function checkoutEmailContinuar() {
 
 async function checkoutVerificarOtp() {
   const email  = document.getElementById('fEmail').value.trim();
-  const codigo = document.getElementById('fOtpCodigo').value.trim();
+  const codigo = getOtpValue('fOtpBoxes');
   if (codigo.length !== 6) { showToast('Ingresá el código de 6 dígitos'); return; }
   const btn = document.getElementById('btnCheckoutOtp');
   btn.disabled = true;
@@ -444,7 +443,11 @@ async function checkoutVerificarOtp() {
       body: JSON.stringify({ accion: 'verificar', correo: email, codigo }),
     });
     const data = await res.json();
-    if (!data.ok) { showToast(data.error || 'Código incorrecto'); return; }
+    if (!data.ok) {
+      showToast(data.error || 'Código incorrecto');
+      clearOtpBoxes('fOtpBoxes');
+      return;
+    }
     setToken(data.token);
     try {
       const cliRes  = await fetch('api/clientes', { headers: authHeaders() });
@@ -490,6 +493,33 @@ function checkoutExtraDatosContinuar() {
 function backToCheckoutEmail() {
   document.getElementById('checkoutStepOtp').style.display   = 'none';
   document.getElementById('checkoutStepEmail').style.display = '';
+}
+
+async function resendCheckoutOtp() {
+  const correo = document.getElementById('fEmail').value.trim();
+  if (!correo) { showToast('No se encontró el correo'); return; }
+  const btn = document.getElementById('btnReenviarCheckoutOtp');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'enviar', correo }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      clearOtpBoxes('fOtpBoxes');
+      showToast('Código reenviado a tu correo');
+    } else {
+      showToast(data.error || 'No se pudo reenviar el código');
+    }
+  } catch {
+    showToast('Sin conexión. Verificá tu internet.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reenviar código';
+  }
 }
 
 function populateConfirmStep() {
@@ -1077,6 +1107,53 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
+/* ===== OTP boxes helpers ===== */
+function initOtpBoxes(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const boxes = Array.from(container.querySelectorAll('.otp-box'));
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/\D/g, '').slice(-1);
+      if (box.value && idx < boxes.length - 1) boxes[idx + 1].focus();
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && idx > 0) {
+        boxes[idx - 1].focus();
+        boxes[idx - 1].value = '';
+        e.preventDefault();
+      } else if (e.key === 'ArrowLeft' && idx > 0) {
+        boxes[idx - 1].focus(); e.preventDefault();
+      } else if (e.key === 'ArrowRight' && idx < boxes.length - 1) {
+        boxes[idx + 1].focus(); e.preventDefault();
+      }
+    });
+    box.addEventListener('paste', (e) => {
+      const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, boxes.length);
+      if (!pasted) return;
+      e.preventDefault();
+      boxes.forEach((b, i) => { b.value = pasted[i] || ''; });
+      const nextEmpty = boxes.findIndex(b => !b.value);
+      (nextEmpty === -1 ? boxes[boxes.length - 1] : boxes[nextEmpty]).focus();
+    });
+    box.addEventListener('focus', () => setTimeout(() => box.select(), 0));
+  });
+}
+
+function getOtpValue(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return '';
+  return Array.from(container.querySelectorAll('.otp-box')).map(b => b.value).join('');
+}
+
+function clearOtpBoxes(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const boxes = container.querySelectorAll('.otp-box');
+  boxes.forEach(b => { b.value = ''; });
+  if (boxes[0]) boxes[0].focus();
+}
+
 /* ===== Product Detail Modal ===== */
 let currentDetailProduct = null;
 
@@ -1207,7 +1284,7 @@ function openOtpModal() {
   document.getElementById('otpStep1').style.display = '';
   document.getElementById('otpStep2').style.display = 'none';
   document.getElementById('otpEmail').value = '';
-  document.getElementById('otpCodigo').value = '';
+  clearOtpBoxes('otpBoxes');
   document.getElementById('otpModal').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('otpEmail').focus(), 300);
@@ -1221,6 +1298,33 @@ function closeOtpModal() {
 function backOtpStep() {
   document.getElementById('otpStep1').style.display = '';
   document.getElementById('otpStep2').style.display = 'none';
+}
+
+async function resendOtp() {
+  const correo = document.getElementById('otpEmail').value.trim();
+  if (!correo) { showToast('No se encontró el correo'); return; }
+  const btn = document.getElementById('btnReenviarOtp');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'enviar', correo }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      clearOtpBoxes('otpBoxes');
+      showToast('Código reenviado a tu correo');
+    } else {
+      showToast(data.error || 'No se pudo reenviar el código');
+    }
+  } catch {
+    showToast('Sin conexión');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reenviar código';
+  }
 }
 
 async function sendOtp() {
@@ -1243,7 +1347,7 @@ async function sendOtp() {
       document.getElementById('otpEmailLabel').textContent = correo;
       document.getElementById('otpStep1').style.display = 'none';
       document.getElementById('otpStep2').style.display = '';
-      setTimeout(() => document.getElementById('otpCodigo').focus(), 300);
+      setTimeout(() => clearOtpBoxes('otpBoxes'), 300);
     } else {
       showToast(data.error || 'Error al enviar el código');
     }
@@ -1257,7 +1361,7 @@ async function sendOtp() {
 
 async function verifyOtp() {
   const correo = document.getElementById('otpEmail').value.trim();
-  const codigo = document.getElementById('otpCodigo').value.trim();
+  const codigo = getOtpValue('otpBoxes');
   if (codigo.length !== 6) { showToast('Ingresá el código de 6 dígitos'); return; }
 
   const btn = document.getElementById('btnVerificarOtp');
@@ -1290,6 +1394,7 @@ async function verifyOtp() {
       showToast(data.nuevo ? '¡Cuenta creada! Bienvenido.' : '¡Sesión iniciada!');
     } else {
       showToast(data.error || 'Código incorrecto');
+      clearOtpBoxes('otpBoxes');
     }
   } catch {
     showToast('Sin conexión');
@@ -1303,6 +1408,8 @@ async function verifyOtp() {
 document.addEventListener('DOMContentLoaded', async () => {
   tema.init();
   cart.load();
+  initOtpBoxes('fOtpBoxes');
+  initOtpBoxes('otpBoxes');
 
   // Auto-fill datos del cliente desde JWT
   if (getClienteId()) {

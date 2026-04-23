@@ -61,7 +61,7 @@ if ($accion === 'checkout_email') {
         // Correo existente → enviar OTP
         $stmtRate = $pdo->prepare("
             SELECT COUNT(*) FROM otp_codigos
-            WHERE correo = ? AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+            WHERE correo = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
         ");
         $stmtRate->execute([$correo]);
         if ((int)$stmtRate->fetchColumn() >= 3) {
@@ -135,7 +135,7 @@ if ($accion === 'enviar') {
     // Rate limit: máximo 3 intentos en 10 minutos
     $stmtRate = $pdo->prepare("
         SELECT COUNT(*) FROM otp_codigos
-        WHERE correo = ? AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+        WHERE correo = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
     ");
     $stmtRate->execute([$correo]);
     if ((int)$stmtRate->fetchColumn() >= 3) {

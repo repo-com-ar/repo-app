@@ -161,11 +161,21 @@
       <div class="modal-title">Verificá tu identidad</div>
       <p class="otp-sub">Enviamos un código de 6 dígitos a <strong id="checkoutOtpEmailLabel"></strong></p>
       <div class="form-group">
-        <label>Código de verificación *</label>
-        <input type="text" id="fOtpCodigo" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <label style="text-align:center">Código de verificación *</label>
+        <div class="otp-boxes" id="fOtpBoxes">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+        </div>
       </div>
       <button class="btn-checkout" id="btnCheckoutOtp" onclick="checkoutVerificarOtp()">Continuar</button>
-      <button class="otp-back-btn" onclick="backToCheckoutEmail()">← Cambiar correo</button>
+      <div class="otp-actions">
+        <button class="btn-checkout btn-checkout-secondary" onclick="backToCheckoutEmail()">Cambiar correo</button>
+        <button class="btn-checkout btn-checkout-secondary" id="btnReenviarCheckoutOtp" onclick="resendCheckoutOtp()">Reenviar código</button>
+      </div>
     </div>
 
     <!-- Paso 1c: Datos extra (cuenta nueva o datos incompletos) -->
@@ -291,11 +301,21 @@
       <div class="modal-title">Verificar código</div>
       <p class="otp-sub">Enviamos un código de 6 dígitos a <strong id="otpEmailLabel"></strong></p>
       <div class="form-group">
-        <label>Código de verificación *</label>
-        <input type="text" id="otpCodigo" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <label style="text-align:center">Código de verificación *</label>
+        <div class="otp-boxes" id="otpBoxes">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+          <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
+        </div>
       </div>
       <button class="btn-checkout" id="btnVerificarOtp" onclick="verifyOtp()">Ingresar</button>
-      <button class="otp-back-btn" onclick="backOtpStep()">← Cambiar correo</button>
+      <div class="otp-actions">
+        <button class="btn-checkout btn-checkout-secondary" onclick="backOtpStep()">Cambiar correo</button>
+        <button class="btn-checkout btn-checkout-secondary" id="btnReenviarOtp" onclick="resendOtp()">Reenviar código</button>
+      </div>
     </div>
   </div>
 </div>
