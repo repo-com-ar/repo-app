@@ -28,6 +28,7 @@ if (!file_exists($configPath)) {
 }
 require_once $configPath;
 require_once __DIR__ . '/lib/jwt.php';
+require_once __DIR__ . '/lib/geocoding.php';
 
 try {
     $pdo = getDB();
@@ -89,8 +90,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
     $campos = ['nombre = ?', 'celular = ?', 'direccion = ?', 'correo = ?'];
     $params = [$nombre, $celular ?: null, $direccion ?: null, $correo ?: null];
 
-    if ($lat !== false) { $campos[] = 'lat = ?'; $params[] = $lat; }
-    if ($lng !== false) { $campos[] = 'lng = ?'; $params[] = $lng; }
+    // Manejo de ubicación:
+    //   - si el cliente borra su ubicación (lat/lng === null): limpiar todos los campos geo.
+    //   - si la está seteando (lat/lng numéricos): no los escribimos aquí,
+    //     lo hace guardarUbicacionCliente() junto con el reverse geocoding.
+    $clearUbic = ($lat !== false && $lat === null) || ($lng !== false && $lng === null);
+    $setUbic   = ($lat !== false && $lat !== null) && ($lng !== false && $lng !== null);
+
+    if ($clearUbic) {
+        $campos[] = 'lat = ?';           $params[] = null;
+        $campos[] = 'lng = ?';           $params[] = null;
+        $campos[] = 'direccion_geo = ?'; $params[] = null;
+        $campos[] = 'localidad = ?';     $params[] = null;
+        $campos[] = 'provincia = ?';     $params[] = null;
+        $campos[] = 'pais = ?';          $params[] = null;
+    }
 
     $params[] = $id;
     $stmt = $pdo->prepare("UPDATE clientes SET " . implode(', ', $campos) . " WHERE id = ?");
@@ -104,6 +118,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
             echo json_encode(['ok' => false, 'error' => 'Cliente no encontrado']);
             exit;
         }
+    }
+
+    if ($setUbic) {
+        guardarUbicacionCliente($pdo, $id, (float)$lat, (float)$lng);
     }
 
     echo json_encode(['ok' => true]);

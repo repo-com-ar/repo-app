@@ -590,6 +590,11 @@ body {
   padding: 10px 14px;
   font-size: 14px; color: var(--text2);
   text-align: left;
+  min-width: 0;
+}
+.perfil-fila > span:last-child {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .perfil-icono { font-size: 16px; flex-shrink: 0; }
@@ -605,8 +610,113 @@ body {
   background-image: none;
 }
 .perfil-btn-logout {
-  width: 100%; margin-top: 10px;
+  width: 100%; margin-top: -6px;
 }
+
+.perfil-section-title {
+  width: 100%;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  color: var(--text2); letter-spacing: .04em;
+  margin: 18px 0 2px; padding: 0 2px;
+  text-align: left;
+}
+.perfil-section-title--row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.dir-add-btn {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 50px;
+  padding: 4px 12px; font-size: 12px; font-weight: 600;
+  cursor: pointer; text-transform: none; letter-spacing: 0;
+}
+.dir-add-btn:active { background: var(--border); }
+
+.dir-lista {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: -6px; margin-bottom: 8px;
+}
+.dir-empty {
+  font-size: 13px; color: var(--text2); text-align: center;
+  padding: 14px; border: 1px dashed var(--border); border-radius: 12px;
+}
+
+.dir-card {
+  width: 100%;
+  background: var(--surface2); border: none;
+  border-radius: 12px; padding: 12px 14px;
+  text-align: left;
+}
+.dir-card-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.dir-card-icon { font-size: 18px; }
+.dir-card-etiqueta {
+  font-size: 14px; font-weight: 700; color: var(--text);
+}
+.dir-principal-badge {
+  margin-left: auto;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  color: var(--primary); background: transparent;
+  border: 1px solid var(--primary); border-radius: 50px;
+  padding: 2px 8px;
+}
+.dir-card-dir   { font-size: 13px; color: var(--text); line-height: 1.4; }
+.dir-card-lugar { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.dir-card-actions {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border);
+}
+.dir-btn-text {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--primary);
+  padding: 0;
+}
+.dir-btn-text:active { opacity: .7; }
+.dir-btn-danger { color: #dc2626; }
+
+.check-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: var(--text); cursor: pointer;
+}
+.check-row input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--primary);
+}
+
+/* Selector de direcciones en checkout */
+.co-dir-option {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px; margin-bottom: 8px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; cursor: pointer;
+}
+.co-dir-option input[type="radio"] {
+  margin-top: 3px; accent-color: var(--primary);
+}
+.co-dir-option--active {
+  border-color: var(--primary);
+  background: var(--primary-lt);
+}
+.co-dir-icon { font-size: 20px; flex-shrink: 0; }
+.co-dir-text {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;
+}
+.co-dir-etiqueta { font-size: 14px; font-weight: 700; color: var(--text); }
+.co-dir-principal { font-size: 11px; color: var(--primary); font-weight: 600; }
+.co-dir-dir   { font-size: 13px; color: var(--text); }
+.co-dir-lugar { font-size: 12px; color: var(--text2); }
+.co-dir-empty {
+  font-size: 13px; color: var(--text2); text-align: center;
+  padding: 10px; border: 1px dashed var(--border); border-radius: 10px;
+}
+.co-add-dir-btn {
+  display: block; width: 100%; margin: 8px 0 16px;
+  padding: 10px; background: transparent;
+  border: 1.5px dashed var(--border); border-radius: 12px;
+  font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer;
+}
+.co-add-dir-btn:active { background: var(--primary-lt); }
 
 .perfil-empty {
   text-align: center; padding: 60px 20px;

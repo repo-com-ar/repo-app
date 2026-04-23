@@ -186,8 +186,12 @@
         <input type="text" id="fCliente" placeholder="Ej: María González" autocomplete="name">
       </div>
       <div class="form-group">
-        <label>Celular</label>
-        <input type="tel" id="fTelefono" placeholder="Ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]+" title="Solo dígitos, sin espacios ni guiones">
+        <label>Celular *</label>
+        <input type="tel" id="fTelefono" placeholder="10 dígitos, ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" title="Exactamente 10 dígitos, sin espacios ni guiones" oninput="this.value=this.value.replace(/\D/g,'')">
+      </div>
+      <div class="form-group">
+        <label>Etiqueta para tu dirección</label>
+        <input type="text" id="fEtiqueta" placeholder="Casa, Trabajo, ..." maxlength="50" value="Casa">
       </div>
       <div class="form-group">
         <label>Dirección de entrega *</label>
@@ -211,7 +215,8 @@
       </div>
 
       <div class="co-section-label">Dirección de entrega</div>
-      <div class="co-address" id="coDireccion"></div>
+      <div id="coDireccionSelect"></div>
+      <button type="button" class="co-add-dir-btn" onclick="openDireccionModal(null)">+ Agregar nueva dirección</button>
 
       <div class="co-section-label">Detalle del pedido</div>
       <div id="coItemsList" class="co-items"></div>
@@ -253,27 +258,51 @@
       <input type="email" id="pCorreo" placeholder="email@ejemplo.com" autocomplete="email">
     </div>
     <div class="form-group">
-      <label>Celular</label>
-      <input type="tel" id="pTelefono" placeholder="Ej: 11 2345-6789" autocomplete="tel">
+      <label>Celular *</label>
+      <input type="tel" id="pTelefono" placeholder="10 dígitos, ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" title="Exactamente 10 dígitos" oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <button class="btn-checkout" id="btnGuardarPerfil" onclick="guardarPerfil()">
+      Guardar cambios
+    </button>
+  </div>
+</div>
+
+<!-- ===== Modal Dirección (crear/editar) ===== -->
+<div class="modal-wrap" id="direccionModal">
+  <div class="modal-backdrop" onclick="closeDireccionModal()"></div>
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="btn-close product-modal-close" onclick="closeDireccionModal()">✕</button>
+    <div class="modal-title" id="direccionModalTitle">Nueva dirección</div>
+    <input type="hidden" id="dirId">
+    <div class="form-group">
+      <label>Etiqueta *</label>
+      <input type="text" id="dirEtiqueta" placeholder="Casa, Trabajo, ..." maxlength="50" value="Casa">
     </div>
     <div class="form-group">
-      <label>Dirección de entrega</label>
-      <input type="text" id="pDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
+      <label>Dirección *</label>
+      <input type="text" id="dirDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
     </div>
     <div class="form-group">
       <label>Ubicación GPS</label>
       <div class="perfil-geo-row">
-        <div class="perfil-geo-status" id="pGeoStatus">
-          <span id="pGeoIcon">⚪</span>
-          <span id="pGeoLabel">Sin ubicación detectada</span>
+        <div class="perfil-geo-status" id="dirGeoStatus">
+          <span id="dirGeoIcon">⚪</span>
+          <span id="dirGeoLabel">Sin ubicación detectada</span>
         </div>
-        <button type="button" class="perfil-geo-btn" id="pGeoBtn" onclick="detectarUbicacionPerfil()">
+        <button type="button" class="perfil-geo-btn" id="dirGeoBtn" onclick="detectarUbicacionDireccion()">
           Detectar
         </button>
       </div>
     </div>
-    <button class="btn-checkout" id="btnGuardarPerfil" onclick="guardarPerfil()">
-      Guardar cambios
+    <div class="form-group" id="dirPrincipalWrap" style="display:none">
+      <label class="check-row">
+        <input type="checkbox" id="dirPrincipal">
+        <span>Marcar como dirección principal</span>
+      </label>
+    </div>
+    <button class="btn-checkout" id="btnGuardarDireccion" onclick="guardarDireccion()">
+      Guardar
     </button>
   </div>
 </div>
@@ -288,12 +317,12 @@
     <!-- Paso 1: correo -->
     <div id="otpStep1">
       <div class="modal-title">Iniciar sesión</div>
-      <p class="otp-sub">Ingresá tu correo para recibir un código de acceso.</p>
+      <p class="otp-sub">Ingresá tu correo para iniciar sesión o crear tu cuenta.</p>
       <div class="form-group">
         <label>Correo electrónico *</label>
         <input type="email" id="otpEmail" placeholder="tu@correo.com" inputmode="email" autocomplete="email">
       </div>
-      <button class="btn-checkout" id="btnEnviarOtp" onclick="sendOtp()">Enviar código</button>
+      <button class="btn-checkout" id="btnEnviarOtp" onclick="sendOtp()">Continuar</button>
     </div>
 
     <!-- Paso 2: código OTP -->
@@ -315,6 +344,28 @@
       <div class="otp-actions">
         <button class="btn-checkout btn-checkout-secondary" onclick="backOtpStep()">Cambiar correo</button>
         <button class="btn-checkout btn-checkout-secondary" id="btnReenviarOtp" onclick="resendOtp()">Reenviar código</button>
+      </div>
+    </div>
+
+    <!-- Paso 3: datos extra (correo nuevo → crear cuenta) -->
+    <div id="otpStep3" style="display:none">
+      <div class="modal-title">Completá tus datos</div>
+      <p class="otp-sub">Queremos conocerte. Completá los datos para crear tu cuenta.</p>
+      <div class="form-group">
+        <label>Nombre y apellido *</label>
+        <input type="text" id="otpNombre" placeholder="Ej: María González" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Celular *</label>
+        <input type="tel" id="otpTelefono" placeholder="10 dígitos, ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" title="Exactamente 10 dígitos, sin espacios ni guiones" oninput="this.value=this.value.replace(/\D/g,'')">
+      </div>
+      <div class="form-group">
+        <label>Dirección de entrega *</label>
+        <input type="text" id="otpDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
+      </div>
+      <button class="btn-checkout" id="btnOtpExtraDatos" onclick="otpExtraDatosContinuar()">Crear cuenta</button>
+      <div class="otp-actions">
+        <button class="btn-checkout btn-checkout-secondary" onclick="backOtpStep()">Cambiar correo</button>
       </div>
     </div>
   </div>

@@ -110,7 +110,8 @@ if ($accion === 'checkout_email') {
         exit;
     } else {
         // Correo nuevo → crear cuenta mínima y generar JWT
-        $pdo->prepare("INSERT INTO clientes (nombre, correo) VALUES ('', ?)")->execute([$correo]);
+        $nombreInicial = ucfirst(explode('@', $correo)[0]);
+        $pdo->prepare("INSERT INTO clientes (nombre, correo) VALUES (?, ?)")->execute([$nombreInicial, $correo]);
         $clienteId = (int)$pdo->lastInsertId();
 
         $token = app_jwt_encode([
@@ -223,7 +224,7 @@ if ($accion === 'verificar') {
     if ($cliente) {
         $clienteId = (int)$cliente['id'];
     } else {
-        $nombreFinal = $nombre ?: explode('@', $correo)[0];
+        $nombreFinal = $nombre ?: ucfirst(explode('@', $correo)[0]);
         $pdo->prepare("INSERT INTO clientes (nombre, correo) VALUES (?, ?)")
             ->execute([$nombreFinal, $correo]);
         $clienteId = (int)$pdo->lastInsertId();

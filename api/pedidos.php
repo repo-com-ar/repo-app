@@ -34,6 +34,7 @@ if (!file_exists($configPath)) {
 }
 require_once $configPath;
 require_once __DIR__ . '/lib/jwt.php';
+require_once __DIR__ . '/lib/geocoding.php';
 
 try {
     $pdo = getDB();
@@ -78,8 +79,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $total += $it['precio'] * $it['cantidad'];
     }
 
-    $pedLat = isset($body['lat']) && $body['lat'] !== '' ? (float)$body['lat'] : null;
-    $pedLng = isset($body['lng']) && $body['lng'] !== '' ? (float)$body['lng'] : null;
+    $pedLat = isset($body['lat']) && $body['lat'] !== '' && $body['lat'] !== null ? (float)$body['lat'] : null;
+    $pedLng = isset($body['lng']) && $body['lng'] !== '' && $body['lng'] !== null ? (float)$body['lng'] : null;
+    $direccionId = isset($body['direccion_id']) && $body['direccion_id'] ? (int)$body['direccion_id'] : null;
+
+    // Asegurar schema clientes_direcciones + columna direccion_id en pedidos
+    ensure_direcciones_table($pdo);
+    try { $pdo->query("SELECT direccion_id FROM pedidos LIMIT 1"); } catch (Throwable $e) {
+        try {
+            $pdo->exec("ALTER TABLE pedidos ADD COLUMN direccion_id INT UNSIGNED NULL AFTER direccion, ADD INDEX idx_direccion_id (direccion_id)");
+        } catch (Throwable $e2) { /* silencioso */ }
+    }
 
     // Calcular distancia y tiempo desde centro de distribución
     $distanciaKm = 0;
@@ -133,9 +143,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Resolver dirección:
+        //   1) si llega direccion_id, validar que pertenezca al cliente y tomar sus campos
+        //   2) si no, y el cliente no tiene ninguna dirección, crear la primera con los datos del form
+        if ($direccionId && $clienteId) {
+            $stDir = $pdo->prepare("SELECT direccion, lat, lng FROM clientes_direcciones WHERE id = ? AND cliente_id = ?");
+            $stDir->execute([$direccionId, $clienteId]);
+            $dirRow = $stDir->fetch();
+            if ($dirRow) {
+                if (!empty($dirRow['direccion'])) $clienteDir = $dirRow['direccion'];
+                // Si la dirección ya tiene coords guardadas, usarlas como base; si no, persistir las que llegaron
+                if ($dirRow['lat'] !== null && $dirRow['lng'] !== null && $pedLat === null) {
+                    $pedLat = (float)$dirRow['lat'];
+                    $pedLng = (float)$dirRow['lng'];
+                }
+                if ($pedLat !== null && $pedLng !== null
+                    && ($dirRow['lat'] === null || $dirRow['lng'] === null)) {
+                    $geo = reverseGeocode($pedLat, $pedLng);
+                    $pdo->prepare("UPDATE clientes_direcciones
+                                   SET lat=?, lng=?, direccion_geo=?, localidad=?, provincia=?, pais=?
+                                   WHERE id=?")
+                        ->execute([
+                            $pedLat, $pedLng,
+                            $geo['direccion_geo'], $geo['localidad'], $geo['provincia'], $geo['pais'],
+                            $direccionId,
+                        ]);
+                }
+            } else {
+                $direccionId = null; // no autorizada
+            }
+        }
+        if ($direccionId === null && $clienteId && ($clienteDir !== '' || ($pedLat !== null && $pedLng !== null))) {
+            $stCnt = $pdo->prepare("SELECT id FROM clientes_direcciones WHERE cliente_id = ? LIMIT 1");
+            $stCnt->execute([$clienteId]);
+            if (!$stCnt->fetch()) {
+                $geo = ($pedLat !== null && $pedLng !== null)
+                    ? reverseGeocode($pedLat, $pedLng)
+                    : ['direccion_geo' => null, 'localidad' => null, 'provincia' => null, 'pais' => null];
+                $pdo->prepare("INSERT INTO clientes_direcciones
+                               (cliente_id, etiqueta, direccion, lat, lng, direccion_geo, localidad, provincia, pais, es_principal)
+                               VALUES (?, 'Casa', ?, ?, ?, ?, ?, ?, ?, 1)")
+                    ->execute([
+                        $clienteId,
+                        $clienteDir ?: null,
+                        $pedLat, $pedLng,
+                        $geo['direccion_geo'], $geo['localidad'], $geo['provincia'], $geo['pais'],
+                    ]);
+                $direccionId = (int)$pdo->lastInsertId();
+            }
+        }
+
         $stmt = $pdo->prepare("
-            INSERT INTO pedidos (numero, cliente_id, cliente, correo, celular, direccion, notas, total, estado, lat, lng, distancia_km, tiempo_min)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?)
+            INSERT INTO pedidos (numero, cliente_id, cliente, correo, celular, direccion, direccion_id, notas, total, estado, lat, lng, distancia_km, tiempo_min)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?)
         ");
         $stmt->execute([
             $numero,
@@ -144,6 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $clienteCorreo ?: null,
             $clienteTel,
             $clienteDir,
+            $direccionId,
             $body['notas'] ?? '',
             $total,
             $pedLat,
@@ -176,12 +237,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($productoId) {
                 $stmtStock->execute([$cantidad, $cantidad, $productoId, $cantidad]);
             }
-        }
-
-        // Guardar ubicación GPS en la ficha del cliente
-        if ($pedLat !== null && $pedLng !== null) {
-            $pdo->prepare("UPDATE clientes SET lat = ?, lng = ? WHERE id = ?")
-                ->execute([$pedLat, $pedLng, $clienteId]);
         }
 
         $pdo->commit();

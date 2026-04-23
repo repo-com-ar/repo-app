@@ -365,7 +365,7 @@ function closeCart() {
 }
 
 /* ===== Checkout Modal ===== */
-function openCheckout() {
+async function openCheckout() {
   if (!state.cart.length) {
     showToast('Agregá productos al carrito primero');
     return;
@@ -380,15 +380,22 @@ function openCheckout() {
   const steps = ['checkoutStepEmail','checkoutStepOtp','checkoutStepExtraDatos','checkoutStepConfirmar'];
   steps.forEach(id => { document.getElementById(id).style.display = 'none'; });
 
+  document.getElementById('checkoutModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
   if (getClienteId()) {
-    populateConfirmStep();
-    document.getElementById('checkoutStepConfirmar').style.display = '';
+    await cargarDirecciones();
+    const nombre = document.getElementById('fCliente').value.trim();
+    if (nombre && direcciones.length) {
+      populateConfirmStep();
+      document.getElementById('checkoutStepConfirmar').style.display = '';
+    } else {
+      document.getElementById('checkoutStepExtraDatos').style.display = '';
+      document.getElementById('fCliente').focus();
+    }
   } else {
     document.getElementById('checkoutStepEmail').style.display = '';
   }
-
-  document.getElementById('checkoutModal').classList.add('open');
-  document.body.style.overflow = 'hidden';
 }
 
 async function checkoutEmailContinuar() {
@@ -414,6 +421,7 @@ async function checkoutEmailContinuar() {
       clearOtpBoxes('fOtpBoxes');
     } else {
       setToken(data.token);
+      showToast('Tu cuenta ha sido creada');
       document.getElementById('fCliente').value   = '';
       document.getElementById('fTelefono').value  = '';
       document.getElementById('fDireccion').value = '';
@@ -428,6 +436,8 @@ async function checkoutEmailContinuar() {
     btn.textContent = 'Continuar';
   }
 }
+
+let checkoutSelectedDireccionId = null;
 
 async function checkoutVerificarOtp() {
   const email  = document.getElementById('fEmail').value.trim();
@@ -455,17 +465,16 @@ async function checkoutVerificarOtp() {
       if (cliData.ok && cliData.data) {
         document.getElementById('fCliente').value   = cliData.data.nombre    || '';
         document.getElementById('fTelefono').value  = cliData.data.celular   || '';
-        document.getElementById('fDireccion').value = cliData.data.direccion || '';
       }
     } catch {}
+    await cargarDirecciones();
     document.getElementById('checkoutStepOtp').style.display = 'none';
-    const nombre    = document.getElementById('fCliente').value.trim();
-    const direccion = document.getElementById('fDireccion').value.trim();
-    if (!nombre || !direccion) {
-      document.getElementById('checkoutStepExtraDatos').style.display = '';
-    } else {
+    const nombre = document.getElementById('fCliente').value.trim();
+    if (nombre && direcciones.length) {
       populateConfirmStep();
       document.getElementById('checkoutStepConfirmar').style.display = '';
+    } else {
+      document.getElementById('checkoutStepExtraDatos').style.display = '';
     }
   } catch {
     showToast('Sin conexión. Verificá tu internet.');
@@ -475,19 +484,47 @@ async function checkoutVerificarOtp() {
   }
 }
 
-function checkoutExtraDatosContinuar() {
+async function checkoutExtraDatosContinuar() {
   const nombre    = document.getElementById('fCliente').value.trim();
   const telefono  = document.getElementById('fTelefono').value.trim();
+  const etiqueta  = document.getElementById('fEtiqueta').value.trim() || 'Casa';
   const direccion = document.getElementById('fDireccion').value.trim();
-  if (!nombre)    { showToast('Ingresá tu nombre y apellido'); return; }
-  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
-  if (telefono && !/^[0-9]+$/.test(telefono)) {
-    showToast('El celular solo debe contener dígitos (sin espacios ni guiones)'); return;
+  const clienteId = getClienteId();
+  if (!nombre) { showToast('Ingresá tu nombre y apellido'); return; }
+  if (!/^[0-9]{10}$/.test(telefono)) {
+    showToast('El celular debe tener exactamente 10 dígitos'); return;
   }
+  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
+
+  // PATCH perfil (nombre + celular) y POST primera dirección en paralelo
+  try {
+    const [rPerfil, rDir] = await Promise.all([
+      fetch('api/clientes', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: clienteId, nombre, celular: telefono }),
+      }),
+      fetch('api/clientes_direcciones', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ etiqueta, direccion }),
+      }),
+    ]);
+    const dPerfil = await rPerfil.json();
+    const dDir    = await rDir.json();
+    if (!dPerfil.ok || !dDir.ok) {
+      showToast((dPerfil.error || dDir.error) || 'Error al guardar tus datos');
+      return;
+    }
+    await cargarDirecciones();
+  } catch {
+    showToast('Sin conexión');
+    return;
+  }
+
   document.getElementById('checkoutStepExtraDatos').style.display = 'none';
   populateConfirmStep();
   document.getElementById('checkoutStepConfirmar').style.display = '';
-  document.getElementById('btnVolverDatos').style.display        = '';
 }
 
 function backToCheckoutEmail() {
@@ -526,14 +563,19 @@ function populateConfirmStep() {
   const nombre    = document.getElementById('fCliente').value.trim();
   const email     = document.getElementById('fEmail').value.trim();
   const telefono  = document.getElementById('fTelefono').value.trim();
-  const direccion = document.getElementById('fDireccion').value.trim();
 
   const iniciales = nombre.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-  document.getElementById('coAvatar').textContent    = iniciales || '?';
-  document.getElementById('coNombre').textContent    = nombre;
-  document.getElementById('coEmail').textContent     = email;
-  document.getElementById('coTelefono').textContent  = telefono;
-  document.getElementById('coDireccion').textContent = direccion;
+  document.getElementById('coAvatar').textContent   = iniciales || '?';
+  document.getElementById('coNombre').textContent   = nombre;
+  document.getElementById('coEmail').textContent    = email;
+  document.getElementById('coTelefono').textContent = telefono;
+
+  // Selector de dirección: principal por defecto
+  if (!direcciones.find(d => d.id === checkoutSelectedDireccionId)) {
+    const principal = direcciones.find(d => d.es_principal) || direcciones[0];
+    checkoutSelectedDireccionId = principal ? principal.id : null;
+  }
+  renderCheckoutDireccionSelect();
 
   document.getElementById('coItemsList').innerHTML = state.cart.map(i =>
     `<div class="co-item">
@@ -543,6 +585,35 @@ function populateConfirmStep() {
   document.getElementById('coTotal').textContent = '$' + cart.total().toLocaleString('es-AR');
 }
 
+function renderCheckoutDireccionSelect() {
+  const cont = document.getElementById('coDireccionSelect');
+  if (!cont) return;
+  if (!direcciones.length) {
+    cont.innerHTML = '<div class="co-dir-empty">No tenés direcciones guardadas</div>';
+    return;
+  }
+  cont.innerHTML = direcciones.map(d => {
+    const active  = d.id === checkoutSelectedDireccionId;
+    const icono   = iconoEtiqueta(d.etiqueta);
+    const lugar   = [d.localidad, d.provincia].filter(Boolean).join(', ');
+    return `
+      <label class="co-dir-option ${active ? 'co-dir-option--active' : ''}">
+        <input type="radio" name="coDireccion" value="${d.id}" ${active ? 'checked' : ''} onchange="selectCheckoutDireccion(${d.id})">
+        <span class="co-dir-icon">${icono}</span>
+        <span class="co-dir-text">
+          <span class="co-dir-etiqueta">${esc(d.etiqueta)}${d.es_principal ? ' <span class="co-dir-principal">· Principal</span>' : ''}</span>
+          <span class="co-dir-dir">${esc(d.direccion || '')}</span>
+          ${lugar ? `<span class="co-dir-lugar">${esc(lugar)}</span>` : ''}
+        </span>
+      </label>`;
+  }).join('');
+}
+
+function selectCheckoutDireccion(id) {
+  checkoutSelectedDireccionId = id;
+  renderCheckoutDireccionSelect();
+}
+
 
 function closeCheckout() {
   document.getElementById('checkoutModal').classList.remove('open');
@@ -550,47 +621,58 @@ function closeCheckout() {
 }
 
 async function getCoords() {
-  const geoOverlay = document.getElementById('geoOverlay');
-  try {
-    const permState = navigator.permissions
-      ? (await navigator.permissions.query({ name: 'geolocation' })).state
-      : 'prompt';
-
-    if (permState === 'granted') {
-      return await new Promise(function(resolve) {
-        navigator.geolocation.getCurrentPosition(
-          function(pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
-          function()    { resolve({ lat: null, lng: null }); },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-        );
-      });
-    } else if (permState === 'denied') {
-      return { lat: null, lng: null };
-    } else {
-      return await new Promise(function(resolve) {
-        geoOverlay.classList.add('show');
-        var btnPermit = document.getElementById('geoPermitir');
-        var btnSkip   = document.getElementById('geoOmitir');
-        function cleanup() {
-          geoOverlay.classList.remove('show');
-          btnPermit.onclick = null;
-          btnSkip.onclick = null;
-        }
-        btnSkip.onclick = function() { cleanup(); resolve({ lat: null, lng: null }); };
-        btnPermit.onclick = function() {
-          cleanup();
-          if (!navigator.geolocation) { resolve({ lat: null, lng: null }); return; }
-          navigator.geolocation.getCurrentPosition(
-            function(pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
-            function()    { resolve({ lat: null, lng: null }); },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-          );
-        };
-      });
-    }
-  } catch {
+  if (!navigator.geolocation) {
+    showToast('Tu dispositivo no soporta geolocalización');
     return { lat: null, lng: null };
   }
+
+  // Consultar estado del permiso; algunos browsers no lo soportan → tratar como 'prompt'.
+  let permState = 'prompt';
+  try {
+    if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+      const p = await navigator.permissions.query({ name: 'geolocation' });
+      permState = p.state;
+    }
+  } catch { /* no soportado: asumir prompt */ }
+
+  if (permState === 'denied') {
+    showToast('El permiso de ubicación está bloqueado en tu navegador');
+    return { lat: null, lng: null };
+  }
+
+  if (permState !== 'granted') {
+    const userAccepted = await new Promise((resolve) => {
+      const geoOverlay = document.getElementById('geoOverlay');
+      geoOverlay.classList.add('show');
+      const btnPermit = document.getElementById('geoPermitir');
+      const btnSkip   = document.getElementById('geoOmitir');
+      const cleanup = () => {
+        geoOverlay.classList.remove('show');
+        btnPermit.onclick = null;
+        btnSkip.onclick = null;
+      };
+      btnSkip.onclick   = () => { cleanup(); resolve(false); };
+      btnPermit.onclick = () => { cleanup(); resolve(true); };
+    });
+    if (!userAccepted) return { lat: null, lng: null };
+  }
+
+  // Intento 1: alta precisión. Si falla o hay timeout, intento 2: baja precisión con más tiempo.
+  const tryGetPosition = (highAccuracy, timeoutMs) => new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => { console.warn('Geolocation error', err && err.code, err && err.message); resolve(null); },
+      { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 60000 }
+    );
+  });
+
+  let coords = await tryGetPosition(true, 10000);
+  if (!coords) coords = await tryGetPosition(false, 20000);
+  if (!coords) {
+    showToast('No se pudo obtener la ubicación');
+    return { lat: null, lng: null };
+  }
+  return coords;
 }
 
 let lastOrder = null;
@@ -614,20 +696,31 @@ async function submitOrder() {
   } else {
     btn.textContent = 'Obteniendo ubicación...';
     coords = await getCoords();
+    if (coords.lat && coords.lng) {
+      state.clienteLat = coords.lat;
+      state.clienteLng = coords.lng;
+    }
   }
 
   btn.textContent = 'Enviando...';
 
+  // Dirección elegida: si hay selección, la usamos; si no, la principal o la primera
+  const dirElegida = direcciones.find(d => d.id === checkoutSelectedDireccionId)
+                  || direcciones.find(d => d.es_principal)
+                  || direcciones[0]
+                  || null;
+
   const datos = {
-    cliente:    document.getElementById('fCliente').value.trim(),
-    correo:     document.getElementById('fEmail').value.trim(),
-    celular:    document.getElementById('fTelefono').value.trim(),
-    direccion:  document.getElementById('fDireccion').value.trim(),
-    notas:      document.getElementById('fNotas').value.trim(),
-    items:      state.cart,
-    lat:        coords.lat,
-    lng:        coords.lng,
-    session_id: getSessionId(),
+    cliente:       document.getElementById('fCliente').value.trim(),
+    correo:        document.getElementById('fEmail').value.trim(),
+    celular:       document.getElementById('fTelefono').value.trim(),
+    direccion:     dirElegida ? (dirElegida.direccion || '') : '',
+    notas:         document.getElementById('fNotas') ? document.getElementById('fNotas').value.trim() : '',
+    items:         state.cart,
+    lat:           coords.lat,
+    lng:           coords.lng,
+    direccion_id:  dirElegida ? dirElegida.id : null,
+    session_id:    getSessionId(),
   };
 
   try {
@@ -839,8 +932,25 @@ function closePedModal() {
 
 /* ===== Perfil ===== */
 let perfilData = null;
-let perfilGeoLat = null;
-let perfilGeoLng = null;
+let direcciones = [];
+let dirGeoLat = null;
+let dirGeoLng = null;
+
+function iconoEtiqueta(etiqueta) {
+  const e = (etiqueta || '').toLowerCase();
+  if (e.includes('trabajo') || e.includes('oficina') || e.includes('lab')) return '💼';
+  if (e.includes('casa') || e.includes('hogar') || e.includes('depto')) return '🏠';
+  return '📍';
+}
+
+async function cargarDirecciones() {
+  if (!getClienteId()) { direcciones = []; return; }
+  try {
+    const res = await fetch('api/clientes_direcciones', { headers: authHeaders() });
+    const data = await res.json();
+    if (data.ok) direcciones = data.data || [];
+  } catch { /* silencioso */ }
+}
 
 async function cargarPerfil() {
   const el = document.getElementById('perfilContenido');
@@ -860,10 +970,15 @@ async function cargarPerfil() {
   el.innerHTML = `<div class="spinner"><div class="spin"></div></div>`;
 
   try {
-    const res  = await fetch('api/clientes', { headers: authHeaders() });
-    const data = await res.json();
+    const [res, resDir] = await Promise.all([
+      fetch('api/clientes', { headers: authHeaders() }),
+      fetch('api/clientes_direcciones', { headers: authHeaders() }),
+    ]);
+    const data    = await res.json();
+    const dataDir = await resDir.json();
     if (data.ok && data.data) {
       perfilData = data.data;
+      direcciones = (dataDir.ok && dataDir.data) ? dataDir.data : [];
       renderPerfil(data.data);
     } else {
       el.innerHTML = `<div class="perfil-empty"><p>No se pudo cargar el perfil.</p></div>`;
@@ -876,53 +991,57 @@ async function cargarPerfil() {
 function renderPerfil(cli) {
   const el = document.getElementById('perfilContenido');
   const iniciales = (cli.nombre || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  const lat = cli.lat ? parseFloat(cli.lat) : null;
-  const lng = cli.lng ? parseFloat(cli.lng) : null;
-  const tieneUbic = lat && lng;
-  const mapsUrl = tieneUbic
-    ? 'https://www.google.com/maps?q=' + lat.toFixed(6) + ',' + lng.toFixed(6)
-    : null;
 
-  const filaCorreo = '<div class="perfil-fila"><span class="perfil-icono">✉️</span><span>' + (cli.correo || 'Sin correo') + '</span></div>';
+  const listaDir = direcciones.length ? direcciones.map(d => {
+    const icono = iconoEtiqueta(d.etiqueta);
+    const principal = d.es_principal
+      ? '<span class="dir-principal-badge">Principal</span>' : '';
+    const setPrin = !d.es_principal
+      ? `<button class="dir-btn-text" onclick="setDireccionPrincipal(${d.id})">Marcar principal</button>`
+      : '';
+    const lugar = [d.localidad, d.provincia].filter(Boolean).join(', ');
+    return `
+      <div class="dir-card ${d.es_principal ? 'dir-card--principal' : ''}">
+        <div class="dir-card-head">
+          <span class="dir-card-icon">${icono}</span>
+          <span class="dir-card-etiqueta">${esc(d.etiqueta)}</span>
+          ${principal}
+        </div>
+        <div class="dir-card-dir">${esc(d.direccion || 'Sin dirección')}</div>
+        ${lugar ? `<div class="dir-card-lugar">${esc(lugar)}</div>` : ''}
+        <div class="dir-card-actions">
+          ${setPrin}
+          <button class="dir-btn-text" onclick="openDireccionModal(${d.id})">Editar</button>
+          <button class="dir-btn-text dir-btn-danger" onclick="eliminarDireccion(${d.id})">Eliminar</button>
+        </div>
+      </div>`;
+  }).join('') : '<div class="dir-empty">Todavía no tenés direcciones guardadas</div>';
 
-  const filaGps = tieneUbic
-    ? '<div class="perfil-fila"><span class="perfil-icono"><img src="' + OM + '1F4CD.svg" alt="ubicación" width="16" height="16"></span>'
-      + '<a href="' + mapsUrl + '" target="_blank" class="perfil-geo-link">'
-      + 'Ubicación detectada</a></div>'
-    : '';
+  el.innerHTML = `
+    <div class="perfil-card">
+      <div class="perfil-avatar">${iniciales}</div>
+      <div class="perfil-info">
+        <div class="perfil-nombre">${esc(cli.nombre || '—')}</div>
+        <div class="perfil-fila"><span class="perfil-icono">✉️</span><span>${esc(cli.correo || 'Sin correo')}</span></div>
+        <div class="perfil-fila"><span class="perfil-icono">📞</span><span>${esc(cli.celular || 'Sin teléfono')}</span></div>
+      </div>
 
-  const ubicBtn = tieneUbic
-    ? ''
-    : '<button class="perfil-btn-ubic perfil-btn-ubic--detectar" onclick="detectarUbicacionDirecta()">📍 Detectar ubicación</button>';
+      <div class="perfil-section-title perfil-section-title--row">
+        <span>Direcciones</span>
+        <button class="dir-add-btn" onclick="openDireccionModal(null)">+ Agregar</button>
+      </div>
+      <div class="dir-lista">${listaDir}</div>
 
-  el.innerHTML =
-    '<div class="perfil-card">'
-    + '<div class="perfil-avatar">' + iniciales + '</div>'
-    + '<div class="perfil-info">'
-      + '<div class="perfil-nombre">' + (cli.nombre || '—') + '</div>'
-      + '<div class="perfil-fila"><span class="perfil-icono">📞</span><span>' + (cli.celular || 'Sin teléfono') + '</span></div>'
-      + filaCorreo
-      + '<div class="perfil-fila"><span class="perfil-icono">🏠</span><span>' + (cli.direccion || 'Sin dirección') + '</span></div>'
-      + filaGps
-      + ubicBtn
-    + '</div>'
-    + '<button class="perfil-btn-edit btn-ver-carrito" onclick="openPerfilModal()">Editar datos</button>'
-    + '<button class="btn-checkout perfil-btn-logout" onclick="cerrarSesion()">Cerrar sesión</button>'
-    + '</div>';
+      <button class="perfil-btn-edit btn-ver-carrito" onclick="openPerfilModal()">Editar datos</button>
+      <button class="btn-checkout perfil-btn-logout" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>`;
 }
 
 function openPerfilModal() {
   if (!perfilData) return;
   document.getElementById('pNombre').value    = perfilData.nombre    || '';
   document.getElementById('pCorreo').value    = perfilData.correo    || '';
-  document.getElementById('pTelefono').value  = perfilData.celular  || '';
-  document.getElementById('pDireccion').value = perfilData.direccion || '';
-
-  // Estado GPS
-  perfilGeoLat = perfilData.lat ? parseFloat(perfilData.lat) : null;
-  perfilGeoLng = perfilData.lng ? parseFloat(perfilData.lng) : null;
-  actualizarEstadoGeo(perfilGeoLat, perfilGeoLng);
-
+  document.getElementById('pTelefono').value  = perfilData.celular   || '';
   document.getElementById('perfilModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -932,10 +1051,87 @@ function closePerfilModal() {
   document.body.style.overflow = '';
 }
 
-function actualizarEstadoGeo(lat, lng) {
-  const icon  = document.getElementById('pGeoIcon');
-  const label = document.getElementById('pGeoLabel');
-  const btn   = document.getElementById('pGeoBtn');
+async function guardarPerfil() {
+  const nombre    = document.getElementById('pNombre').value.trim();
+  const correo    = document.getElementById('pCorreo').value.trim();
+  const celular   = document.getElementById('pTelefono').value.trim();
+  const clienteId = getClienteId();
+
+  if (!nombre) { showToast('El nombre es requerido'); return; }
+  if (celular && !/^[0-9]{10}$/.test(celular)) {
+    showToast('El celular debe tener exactamente 10 dígitos'); return;
+  }
+
+  const btn = document.getElementById('btnGuardarPerfil');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const res = await fetch('api/clientes', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ id: clienteId, nombre, correo: correo || null, celular: celular || null }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      perfilData = { ...perfilData, nombre, correo, celular };
+      renderPerfil(perfilData);
+      closePerfilModal();
+      showToast('Perfil actualizado');
+      const fCli = document.getElementById('fCliente');
+      const fTel = document.getElementById('fTelefono');
+      if (fCli) fCli.value = nombre;
+      if (fTel) fTel.value = celular;
+    } else {
+      showToast(data.error || 'Error al guardar');
+    }
+  } catch {
+    showToast('Sin conexión');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Guardar cambios';
+}
+
+/* ===== Direcciones: modal de alta/edición + CRUD ===== */
+function openDireccionModal(id) {
+  const esNueva = !id;
+  const dir = esNueva ? null : direcciones.find(d => d.id === id);
+
+  document.getElementById('direccionModalTitle').textContent = esNueva ? 'Nueva dirección' : 'Editar dirección';
+  document.getElementById('dirId').value        = esNueva ? '' : id;
+  document.getElementById('dirEtiqueta').value  = dir ? (dir.etiqueta || 'Casa') : 'Casa';
+  document.getElementById('dirDireccion').value = dir ? (dir.direccion || '') : '';
+
+  dirGeoLat = dir && dir.lat ? parseFloat(dir.lat) : null;
+  dirGeoLng = dir && dir.lng ? parseFloat(dir.lng) : null;
+  actualizarEstadoGeoDir(dirGeoLat, dirGeoLng);
+
+  // Checkbox "principal" solo si ya hay otras direcciones (y esta no es la única)
+  const wrap = document.getElementById('dirPrincipalWrap');
+  const chk  = document.getElementById('dirPrincipal');
+  const otras = direcciones.filter(d => d.id !== id);
+  if (otras.length > 0) {
+    wrap.style.display = '';
+    chk.checked = dir ? !!dir.es_principal : false;
+  } else {
+    wrap.style.display = 'none';
+    chk.checked = false;
+  }
+
+  document.getElementById('direccionModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDireccionModal() {
+  document.getElementById('direccionModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function actualizarEstadoGeoDir(lat, lng) {
+  const icon  = document.getElementById('dirGeoIcon');
+  const label = document.getElementById('dirGeoLabel');
+  const btn   = document.getElementById('dirGeoBtn');
   if (!icon || !label) return;
   if (lat && lng) {
     icon.textContent  = '🟢';
@@ -948,143 +1144,72 @@ function actualizarEstadoGeo(lat, lng) {
   }
 }
 
-function detectarUbicacionPerfil() {
-  if (!navigator.geolocation) {
-    showToast('Tu dispositivo no soporta geolocalización');
-    return;
-  }
-  const btn   = document.getElementById('pGeoBtn');
-  const label = document.getElementById('pGeoLabel');
+async function detectarUbicacionDireccion() {
+  const btn = document.getElementById('dirGeoBtn');
   btn.disabled = true;
-  label.textContent = 'Detectando...';
-
-  navigator.geolocation.getCurrentPosition(
-    function(pos) {
-      perfilGeoLat = pos.coords.latitude;
-      perfilGeoLng = pos.coords.longitude;
-      actualizarEstadoGeo(perfilGeoLat, perfilGeoLng);
-      btn.disabled = false;
-    },
-    function() {
-      actualizarEstadoGeo(perfilGeoLat, perfilGeoLng);
-      btn.disabled = false;
-      showToast('No se pudo obtener la ubicación');
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-}
-
-/* Detectar ubicación directamente desde la vista de perfil */
-function detectarUbicacionDirecta() {
-  if (!navigator.geolocation) {
-    showToast('Tu dispositivo no soporta geolocalización');
-    return;
+  const prev = btn.textContent;
+  btn.textContent = 'Detectando...';
+  const coords = await getCoords();
+  if (coords.lat && coords.lng) {
+    dirGeoLat = coords.lat;
+    dirGeoLng = coords.lng;
   }
-  const clienteId = getClienteId();
-  if (!clienteId || !perfilData) return;
-
-  showToast('Detectando ubicación...');
-
-  navigator.geolocation.getCurrentPosition(
-    async function(pos) {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      try {
-        const res = await fetch('api/clientes', {
-          method: 'PATCH',
-          headers: authHeaders(),
-          body: JSON.stringify({ id: clienteId, lat, lng }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          perfilData.lat = lat;
-          perfilData.lng = lng;
-          perfilGeoLat = lat;
-          perfilGeoLng = lng;
-          renderPerfil(perfilData);
-          showToast('Ubicación actualizada');
-        } else {
-          showToast(data.error || 'Error al guardar ubicación');
-        }
-      } catch {
-        showToast('Sin conexión');
-      }
-    },
-    function() {
-      showToast('No se pudo obtener la ubicación');
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
+  actualizarEstadoGeoDir(dirGeoLat, dirGeoLng);
+  btn.disabled = false;
+  if (!coords.lat) btn.textContent = prev;
 }
 
-/* Quitar ubicación directamente desde la vista de perfil */
-async function quitarUbicacionDirecta() {
-  const clienteId = getClienteId();
-  if (!clienteId || !perfilData) return;
+async function guardarDireccion() {
+  const id        = document.getElementById('dirId').value.trim();
+  const etiqueta  = document.getElementById('dirEtiqueta').value.trim() || 'Casa';
+  const direccion = document.getElementById('dirDireccion').value.trim();
+  const principal = document.getElementById('dirPrincipal').checked;
 
-  try {
-    const res = await fetch('api/clientes', {
-      method: 'PATCH',
-      headers: authHeaders(),
-      body: JSON.stringify({ id: clienteId, lat: null, lng: null }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      perfilData.lat = null;
-      perfilData.lng = null;
-      perfilGeoLat = null;
-      perfilGeoLng = null;
-      renderPerfil(perfilData);
-      showToast('Ubicación eliminada');
-    } else {
-      showToast(data.error || 'Error al quitar ubicación');
-    }
-  } catch {
-    showToast('Sin conexión');
-  }
-}
+  if (!direccion) { showToast('Ingresá la dirección'); return; }
 
-async function guardarPerfil() {
-  const nombre    = document.getElementById('pNombre').value.trim();
-  const correo    = document.getElementById('pCorreo').value.trim();
-  const celular  = document.getElementById('pTelefono').value.trim();
-  const direccion = document.getElementById('pDireccion').value.trim();
-  const clienteId = getClienteId();
-
-  if (!nombre) { showToast('El nombre es requerido'); return; }
-
-  const btn = document.getElementById('btnGuardarPerfil');
+  const btn = document.getElementById('btnGuardarDireccion');
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
   const payload = {
-    id: clienteId,
-    nombre, correo: correo || null,
-    celular: celular || null,
-    direccion: direccion || null,
-    lat: perfilGeoLat,
-    lng: perfilGeoLng,
+    etiqueta,
+    direccion,
+    lat: dirGeoLat,
+    lng: dirGeoLng,
+    es_principal: principal ? 1 : 0,
   };
 
   try {
-    const res = await fetch('api/clientes', {
-      method: 'PATCH',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    });
+    let res;
+    if (id) {
+      res = await fetch('api/clientes_direcciones', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: parseInt(id, 10), ...payload }),
+      });
+    } else {
+      res = await fetch('api/clientes_direcciones', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+    }
     const data = await res.json();
     if (data.ok) {
-      perfilData = { ...perfilData, nombre, correo, celular, direccion, lat: perfilGeoLat, lng: perfilGeoLng };
-      renderPerfil(perfilData);
-      closePerfilModal();
-      showToast('Perfil actualizado');
-      // Sincronizar campos del checkout
-      const fCli = document.getElementById('fCliente');
-      const fTel = document.getElementById('fTelefono');
-      const fDir = document.getElementById('fDireccion');
-      if (fCli) fCli.value = nombre;
-      if (fTel) fTel.value = celular;
-      if (fDir) fDir.value = direccion;
+      const newId = data.id || null;
+      await cargarDirecciones();
+      if (perfilData) renderPerfil(perfilData);
+      // Si el checkout está abierto, refrescar su selector y seleccionar la recién creada
+      if (document.getElementById('checkoutModal').classList.contains('open')) {
+        if (newId) checkoutSelectedDireccionId = newId;
+        renderCheckoutDireccionSelect();
+      }
+      closeDireccionModal();
+      // Restaurar el scroll-lock del checkout si sigue abierto
+      if (document.getElementById('checkoutModal').classList.contains('open')) {
+        document.body.style.overflow = 'hidden';
+      }
+      showToast(id ? 'Dirección actualizada' : 'Dirección agregada');
     } else {
       showToast(data.error || 'Error al guardar');
     }
@@ -1093,7 +1218,54 @@ async function guardarPerfil() {
   }
 
   btn.disabled = false;
-  btn.textContent = 'Guardar cambios';
+  btn.textContent = 'Guardar';
+}
+
+async function eliminarDireccion(id) {
+  if (!confirm('¿Eliminar esta dirección?')) return;
+  try {
+    const res = await fetch(`api/clientes_direcciones?id=${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      await cargarDirecciones();
+      if (perfilData) renderPerfil(perfilData);
+      showToast('Dirección eliminada');
+    } else {
+      showToast(data.error || 'No se pudo eliminar');
+    }
+  } catch {
+    showToast('Sin conexión');
+  }
+}
+
+async function setDireccionPrincipal(id) {
+  try {
+    const res = await fetch('api/clientes_direcciones', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ id, es_principal: 1 }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      await cargarDirecciones();
+      if (perfilData) renderPerfil(perfilData);
+      showToast('Dirección principal actualizada');
+    } else {
+      showToast(data.error || 'No se pudo actualizar');
+    }
+  } catch {
+    showToast('Sin conexión');
+  }
+}
+
+/* ===== HTML escape utility ===== */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /* ===== Toast ===== */
@@ -1283,6 +1455,7 @@ window.addEventListener('popstate', function() {
 function openOtpModal() {
   document.getElementById('otpStep1').style.display = '';
   document.getElementById('otpStep2').style.display = 'none';
+  document.getElementById('otpStep3').style.display = 'none';
   document.getElementById('otpEmail').value = '';
   clearOtpBoxes('otpBoxes');
   document.getElementById('otpModal').classList.add('open');
@@ -1298,6 +1471,7 @@ function closeOtpModal() {
 function backOtpStep() {
   document.getElementById('otpStep1').style.display = '';
   document.getElementById('otpStep2').style.display = 'none';
+  document.getElementById('otpStep3').style.display = 'none';
 }
 
 async function resendOtp() {
@@ -1335,27 +1509,91 @@ async function sendOtp() {
   }
   const btn = document.getElementById('btnEnviarOtp');
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.textContent = 'Procesando...';
   try {
     const res  = await fetch('api/auth_otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'enviar', correo }),
+      body: JSON.stringify({ accion: 'checkout_email', correo }),
     });
     const data = await res.json();
-    if (data.ok) {
+    if (!data.ok) {
+      showToast(data.error || 'No se pudo procesar el correo');
+      return;
+    }
+    if (data.existe) {
       document.getElementById('otpEmailLabel').textContent = correo;
       document.getElementById('otpStep1').style.display = 'none';
       document.getElementById('otpStep2').style.display = '';
       setTimeout(() => clearOtpBoxes('otpBoxes'), 300);
     } else {
-      showToast(data.error || 'Error al enviar el código');
+      setToken(data.token);
+      showToast('Tu cuenta ha sido creada');
+      document.getElementById('otpNombre').value    = '';
+      document.getElementById('otpTelefono').value  = '';
+      document.getElementById('otpDireccion').value = '';
+      document.getElementById('otpStep1').style.display = 'none';
+      document.getElementById('otpStep3').style.display = '';
+      setTimeout(() => document.getElementById('otpNombre').focus(), 300);
     }
   } catch {
     showToast('Sin conexión');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Enviar código';
+    btn.textContent = 'Continuar';
+  }
+}
+
+async function otpExtraDatosContinuar() {
+  const nombre    = document.getElementById('otpNombre').value.trim();
+  const celular   = document.getElementById('otpTelefono').value.trim();
+  const direccion = document.getElementById('otpDireccion').value.trim();
+  const correo    = document.getElementById('otpEmail').value.trim();
+  const clienteId = getClienteId();
+  if (!clienteId) { showToast('Sesión inválida. Volvé a ingresar tu correo.'); return; }
+  if (!nombre)    { showToast('Ingresá tu nombre y apellido'); return; }
+  if (!/^[0-9]{10}$/.test(celular)) {
+    showToast('El celular debe tener exactamente 10 dígitos');
+    return;
+  }
+  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
+
+  const btn = document.getElementById('btnOtpExtraDatos');
+  btn.disabled = true;
+  btn.textContent = 'Creando cuenta...';
+  try {
+    const res = await fetch('api/clientes', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        id: clienteId,
+        nombre,
+        correo: correo || null,
+        celular: celular || null,
+        direccion: direccion || null,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      showToast(data.error || 'No se pudo crear la cuenta');
+      return;
+    }
+    closeOtpModal();
+    cargarPerfil();
+    const fCli = document.getElementById('fCliente');
+    const fEm  = document.getElementById('fEmail');
+    const fTel = document.getElementById('fTelefono');
+    const fDir = document.getElementById('fDireccion');
+    if (fCli) fCli.value = nombre;
+    if (fEm)  fEm.value  = correo;
+    if (fTel) fTel.value = celular;
+    if (fDir) fDir.value = direccion;
+    showToast('¡Cuenta creada! Bienvenido.');
+  } catch {
+    showToast('Sin conexión');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Crear cuenta';
   }
 }
 
@@ -1413,6 +1651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Auto-fill datos del cliente desde JWT
   if (getClienteId()) {
+    let sesionValida = true;
     try {
       var cliRes = await fetch('api/clientes', { headers: authHeaders() });
       var cliData = await cliRes.json();
@@ -1423,10 +1662,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('fDireccion').value = cliData.data.direccion || '';
         state.clienteLat = cliData.data.lat ? parseFloat(cliData.data.lat) : null;
         state.clienteLng = cliData.data.lng ? parseFloat(cliData.data.lng) : null;
+      } else {
+        // El usuario del JWT ya no existe en el servidor → cerrar sesión
+        removeToken();
+        sesionValida = false;
       }
-    } catch (e) { /* silencioso */ }
+    } catch (e) { /* silencioso: problema de red, conservamos la sesión */ }
     // Sincronizar carrito local con el servidor al iniciar sesión
-    if (state.cart.length) cart.sync();
+    if (sesionValida && state.cart.length) cart.sync();
   }
 
   // Cargar config
