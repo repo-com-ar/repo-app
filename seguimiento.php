@@ -56,16 +56,16 @@ if ($numero) {
 }
 
 $estados = [
-    'pendiente'  => ['label' => 'Recibido',    'color' => '#f59e0b', 'emoji' => '⏳'],
-    'confirmado' => ['label' => 'Confirmado',  'color' => '#3b82f6', 'emoji' => '✅'],
-    'preparando' => ['label' => 'Preparando',  'color' => '#8b5cf6', 'emoji' => '👨‍🍳'],
-    'enviado'    => ['label' => 'En camino',   'color' => '#06b6d4', 'emoji' => '🚚'],
-    'entregado'  => ['label' => 'Entregado',   'color' => '#22c55e', 'emoji' => '🎉'],
-    'cancelado'  => ['label' => 'Cancelado',   'color' => '#ef4444', 'emoji' => '❌'],
+    'pendiente'   => ['label' => 'Recibido',    'color' => '#f59e0b', 'emoji' => '⏳'],
+    'preparacion' => ['label' => 'Preparación', 'color' => '#8b5cf6', 'emoji' => '👨‍🍳'],
+    'asignacion'  => ['label' => 'Asignación',  'color' => '#3b82f6', 'emoji' => '📋'],
+    'reparto'     => ['label' => 'En reparto',  'color' => '#06b6d4', 'emoji' => '🛵'],
+    'entregado'   => ['label' => 'Entregado',   'color' => '#22c55e', 'emoji' => '🎉'],
+    'cancelado'   => ['label' => 'Cancelado',   'color' => '#ef4444', 'emoji' => '❌'],
 ];
 $est = $pedido ? ($estados[$pedido['estado']] ?? ['label' => ucfirst($pedido['estado']), 'color' => '#64748b', 'emoji' => '📦']) : null;
 
-$pasos = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado'];
+$pasos = ['pendiente', 'preparacion', 'asignacion', 'reparto', 'entregado'];
 $pasoActual = $pedido ? array_search($pedido['estado'], $pasos) : -1;
 ?><!DOCTYPE html>
 <html lang="es">

@@ -145,19 +145,38 @@
     <div class="modal-handle"></div>
     <button class="btn-close product-modal-close" onclick="closeCheckout()">✕</button>
 
-    <!-- Paso 1: Datos (solo sin sesión) -->
-    <div id="checkoutStepDatos" style="display:none">
-      <div class="modal-title">Tus datos</div>
+    <!-- Paso 1a: Correo (solo sin sesión) -->
+    <div id="checkoutStepEmail" style="display:none">
+      <div class="modal-title">Ingresá tu correo</div>
+      <p class="otp-sub">Para confirmar tu pedido necesitamos tu correo electrónico.</p>
+      <div class="form-group">
+        <label>Correo electrónico *</label>
+        <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" autocomplete="email" inputmode="email">
+      </div>
+      <button class="btn-checkout" id="btnCheckoutEmail" onclick="checkoutEmailContinuar()">Continuar</button>
+    </div>
+
+    <!-- Paso 1b: Código OTP (correo existente) -->
+    <div id="checkoutStepOtp" style="display:none">
+      <div class="modal-title">Verificá tu identidad</div>
+      <p class="otp-sub">Enviamos un código de 6 dígitos a <strong id="checkoutOtpEmailLabel"></strong></p>
+      <div class="form-group">
+        <label>Código de verificación *</label>
+        <input type="text" id="fOtpCodigo" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      </div>
+      <button class="btn-checkout" id="btnCheckoutOtp" onclick="checkoutVerificarOtp()">Continuar</button>
+      <button class="otp-back-btn" onclick="backToCheckoutEmail()">← Cambiar correo</button>
+    </div>
+
+    <!-- Paso 1c: Datos extra (cuenta nueva o datos incompletos) -->
+    <div id="checkoutStepExtraDatos" style="display:none">
+      <div class="modal-title">Completá tus datos</div>
       <div class="form-group">
         <label>Nombre y apellido *</label>
         <input type="text" id="fCliente" placeholder="Ej: María González" autocomplete="name">
       </div>
       <div class="form-group">
-        <label>Correo electrónico *</label>
-        <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label>Celular *</label>
+        <label>Celular</label>
         <input type="tel" id="fTelefono" placeholder="Ej: 1123456789" autocomplete="tel" inputmode="numeric" pattern="[0-9]+" title="Solo dígitos, sin espacios ni guiones">
       </div>
       <div class="form-group">
@@ -165,7 +184,7 @@
         <input type="text" id="fDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
       </div>
       <textarea id="fNotas" style="display:none"></textarea>
-      <button class="btn-checkout" onclick="goToCheckoutConfirm()">Continuar</button>
+      <button class="btn-checkout" onclick="checkoutExtraDatosContinuar()">Continuar</button>
     </div>
 
     <!-- Paso 2: Confirmar (siempre, antes de enviar) -->
@@ -194,7 +213,6 @@
       <button class="btn-checkout" id="btnConfirmar" onclick="submitOrder()">
         Confirmar y enviar pedido
       </button>
-      <button class="otp-back-btn" id="btnVolverDatos" onclick="backToCheckoutDatos()">← Editar datos</button>
     </div>
 
     <!-- Paso 3: Éxito -->

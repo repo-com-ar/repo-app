@@ -104,22 +104,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Buscar o crear cliente
         $clienteNombre = trim($body['cliente']);
-        $clienteTel = trim($body['celular'] ?? '');
-        $clienteDir = trim($body['direccion'] ?? '');
-        $clienteCorreo = trim($body['correo'] ?? '');
-        $clienteId = null;
+        $clienteTel    = trim($body['celular']   ?? '');
+        $clienteDir    = trim($body['direccion'] ?? '');
+        $clienteCorreo = trim($body['correo']    ?? '');
+        $clienteId     = null;
 
-        // Buscar por nombre + teléfono
-        $stmtCli = $pdo->prepare("SELECT id FROM clientes WHERE nombre = ? AND celular = ? LIMIT 1");
-        $stmtCli->execute([$clienteNombre, $clienteTel]);
-        $existente = $stmtCli->fetch();
-
-        if ($existente) {
-            $clienteId = (int)$existente['id'];
-            $pdo->prepare("UPDATE clientes SET direccion = ?, correo = ?, updated_at = NOW() WHERE id = ?")->execute([$clienteDir, $clienteCorreo ?: null, $clienteId]);
+        // Preferir JWT si viene en el header (nuevo flujo)
+        $jwtPayload = app_jwt_from_request();
+        if ($jwtPayload && !empty($jwtPayload['cliente_id'])) {
+            $clienteId = (int)$jwtPayload['cliente_id'];
+            $pdo->prepare("UPDATE clientes SET nombre = ?, celular = ?, direccion = ?, correo = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$clienteNombre, $clienteTel, $clienteDir, $clienteCorreo ?: null, $clienteId]);
         } else {
-            $pdo->prepare("INSERT INTO clientes (nombre, celular, direccion, correo) VALUES (?, ?, ?, ?)")->execute([$clienteNombre, $clienteTel, $clienteDir, $clienteCorreo ?: null]);
-            $clienteId = (int)$pdo->lastInsertId();
+            // Buscar por nombre + teléfono (flujo legacy)
+            $stmtCli = $pdo->prepare("SELECT id FROM clientes WHERE nombre = ? AND celular = ? LIMIT 1");
+            $stmtCli->execute([$clienteNombre, $clienteTel]);
+            $existente = $stmtCli->fetch();
+
+            if ($existente) {
+                $clienteId = (int)$existente['id'];
+                $pdo->prepare("UPDATE clientes SET direccion = ?, correo = ?, updated_at = NOW() WHERE id = ?")
+                    ->execute([$clienteDir, $clienteCorreo ?: null, $clienteId]);
+            } else {
+                $pdo->prepare("INSERT INTO clientes (nombre, celular, direccion, correo) VALUES (?, ?, ?, ?)")
+                    ->execute([$clienteNombre, $clienteTel, $clienteDir, $clienteCorreo ?: null]);
+                $clienteId = (int)$pdo->lastInsertId();
+            }
         }
 
         $stmt = $pdo->prepare("

@@ -96,7 +96,7 @@ async function fetchProductos(cat = 'todos', q = '') {
 async function enviarPedido(datos) {
   const res  = await fetch('api/pedidos', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(datos),
   });
   const text = await res.text();
@@ -377,39 +377,119 @@ function openCheckout() {
   closeCart();
   document.getElementById('confirmScreen').classList.remove('show');
 
+  const steps = ['checkoutStepEmail','checkoutStepOtp','checkoutStepExtraDatos','checkoutStepConfirmar'];
+  steps.forEach(id => { document.getElementById(id).style.display = 'none'; });
+
   if (getClienteId()) {
     populateConfirmStep();
-    document.getElementById('checkoutStepDatos').style.display    = 'none';
     document.getElementById('checkoutStepConfirmar').style.display = '';
-    document.getElementById('btnVolverDatos').style.display        = 'none';
   } else {
-    document.getElementById('checkoutStepDatos').style.display    = '';
-    document.getElementById('checkoutStepConfirmar').style.display = 'none';
+    document.getElementById('checkoutStepEmail').style.display = '';
   }
 
   document.getElementById('checkoutModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
-function goToCheckoutConfirm() {
-  const nombre    = document.getElementById('fCliente').value.trim();
-  const email     = document.getElementById('fEmail').value.trim();
-  const tel       = document.getElementById('fTelefono').value.trim();
-  const direccion = document.getElementById('fDireccion').value.trim();
-
-  if (!nombre)    { showToast('Ingresá tu nombre y apellido'); return; }
-  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
+async function checkoutEmailContinuar() {
+  const email = document.getElementById('fEmail').value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     showToast('Ingresá un correo electrónico válido'); return;
   }
-  if (!/^[0-9]+$/.test(tel)) {
+  const btn = document.getElementById('btnCheckoutEmail');
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'checkout_email', correo: email }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showToast(data.error || 'Error al procesar el correo'); return; }
+    if (data.existe) {
+      document.getElementById('checkoutOtpEmailLabel').textContent = email;
+      document.getElementById('checkoutStepEmail').style.display   = 'none';
+      document.getElementById('checkoutStepOtp').style.display     = '';
+      document.getElementById('fOtpCodigo').value = '';
+      document.getElementById('fOtpCodigo').focus();
+    } else {
+      setToken(data.token);
+      document.getElementById('fCliente').value   = '';
+      document.getElementById('fTelefono').value  = '';
+      document.getElementById('fDireccion').value = '';
+      document.getElementById('checkoutStepEmail').style.display      = 'none';
+      document.getElementById('checkoutStepExtraDatos').style.display = '';
+      document.getElementById('fCliente').focus();
+    }
+  } catch {
+    showToast('Sin conexión. Verificá tu internet.');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Continuar';
+  }
+}
+
+async function checkoutVerificarOtp() {
+  const email  = document.getElementById('fEmail').value.trim();
+  const codigo = document.getElementById('fOtpCodigo').value.trim();
+  if (codigo.length !== 6) { showToast('Ingresá el código de 6 dígitos'); return; }
+  const btn = document.getElementById('btnCheckoutOtp');
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  try {
+    const res  = await fetch('api/auth_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'verificar', correo: email, codigo }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showToast(data.error || 'Código incorrecto'); return; }
+    setToken(data.token);
+    try {
+      const cliRes  = await fetch('api/clientes', { headers: authHeaders() });
+      const cliData = await cliRes.json();
+      if (cliData.ok && cliData.data) {
+        document.getElementById('fCliente').value   = cliData.data.nombre    || '';
+        document.getElementById('fTelefono').value  = cliData.data.celular   || '';
+        document.getElementById('fDireccion').value = cliData.data.direccion || '';
+      }
+    } catch {}
+    document.getElementById('checkoutStepOtp').style.display = 'none';
+    const nombre    = document.getElementById('fCliente').value.trim();
+    const direccion = document.getElementById('fDireccion').value.trim();
+    if (!nombre || !direccion) {
+      document.getElementById('checkoutStepExtraDatos').style.display = '';
+    } else {
+      populateConfirmStep();
+      document.getElementById('checkoutStepConfirmar').style.display = '';
+    }
+  } catch {
+    showToast('Sin conexión. Verificá tu internet.');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Continuar';
+  }
+}
+
+function checkoutExtraDatosContinuar() {
+  const nombre    = document.getElementById('fCliente').value.trim();
+  const telefono  = document.getElementById('fTelefono').value.trim();
+  const direccion = document.getElementById('fDireccion').value.trim();
+  if (!nombre)    { showToast('Ingresá tu nombre y apellido'); return; }
+  if (!direccion) { showToast('Ingresá la dirección de entrega'); return; }
+  if (telefono && !/^[0-9]+$/.test(telefono)) {
     showToast('El celular solo debe contener dígitos (sin espacios ni guiones)'); return;
   }
-
+  document.getElementById('checkoutStepExtraDatos').style.display = 'none';
   populateConfirmStep();
-  document.getElementById('checkoutStepDatos').style.display     = 'none';
-  document.getElementById('checkoutStepConfirmar').style.display  = '';
-  document.getElementById('btnVolverDatos').style.display         = '';
+  document.getElementById('checkoutStepConfirmar').style.display = '';
+  document.getElementById('btnVolverDatos').style.display        = '';
+}
+
+function backToCheckoutEmail() {
+  document.getElementById('checkoutStepOtp').style.display   = 'none';
+  document.getElementById('checkoutStepEmail').style.display = '';
 }
 
 function populateConfirmStep() {
@@ -433,10 +513,6 @@ function populateConfirmStep() {
   document.getElementById('coTotal').textContent = '$' + cart.total().toLocaleString('es-AR');
 }
 
-function backToCheckoutDatos() {
-  document.getElementById('checkoutStepConfirmar').style.display = 'none';
-  document.getElementById('checkoutStepDatos').style.display     = '';
-}
 
 function closeCheckout() {
   document.getElementById('checkoutModal').classList.remove('open');
@@ -642,11 +718,12 @@ async function cargarMisPedidos() {
 }
 
 const ESTADO_LABEL = {
-  pendiente:  'Pendiente',
-  preparando: 'Preparando',
-  listo:      'Listo',
-  entregado:  'Entregado',
-  cancelado:  'Cancelado',
+  pendiente:   'Pendiente',
+  preparacion: 'Preparación',
+  asignacion:  'Asignación',
+  reparto:     'Reparto',
+  entregado:   'Entregado',
+  cancelado:   'Cancelado',
 };
 
 function renderPedidos(lista) {
@@ -677,15 +754,15 @@ function renderPedidos(lista) {
 
 /* ===== Modal detalle pedido ===== */
 const PED_ESTADOS = {
-  pendiente:  { label: 'Recibido',   color: '#f59e0b' },
-  confirmado: { label: 'Confirmado', color: '#3b82f6' },
-  preparando: { label: 'Preparando', color: '#8b5cf6' },
-  enviado:    { label: 'En camino',  color: '#06b6d4' },
-  entregado:  { label: 'Entregado',  color: '#22c55e' },
-  cancelado:  { label: 'Cancelado',  color: '#ef4444' },
+  pendiente:   { label: 'Recibido',   color: '#f59e0b' },
+  preparacion: { label: 'Preparación', color: '#8b5cf6' },
+  asignacion:  { label: 'Asignación', color: '#3b82f6' },
+  reparto:     { label: 'En reparto', color: '#06b6d4' },
+  entregado:   { label: 'Entregado',  color: '#22c55e' },
+  cancelado:   { label: 'Cancelado',  color: '#ef4444' },
 };
-const PED_PASOS = ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado'];
-const PED_PASO_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entregado'];
+const PED_PASOS = ['pendiente', 'preparacion', 'asignacion', 'reparto', 'entregado'];
+const PED_PASO_LABELS = ['Recibido', 'Preparación', 'Asignación', 'En reparto', 'Entregado'];
 
 function openPedModal(p) {
   const est = PED_ESTADOS[p.estado] || { label: p.estado, color: '#64748b' };
