@@ -1,120 +1,83 @@
-# Repo App
+# repo-app — Tienda online para clientes
 
-Aplicación web mobile-first para clientes del sistema **Repo Online**. Permite explorar el catálogo de productos, armar un carrito y realizar pedidos con notificación automática por WhatsApp.
-
-## Acceso
-
-```
-/repo-app/index.php
-```
-
-No requiere instalación ni login previo. El cliente se identifica automáticamente por cookie tras realizar su primer pedido.
+PWA mobile-first donde los clientes navegan el catálogo, agregan productos al carrito y realizan pedidos con verificación por email (OTP) y detección de ubicación por GPS.
 
 ---
 
-## Funcionalidades
+## Tecnologías
 
-### Catálogo
-- Listado de productos con imagen, precio y estado de stock
-- Filtro por categorías (tabs)
-- Buscador en tiempo real
-- Modal de detalle del producto con control de cantidad (+ / −)
-
-### Carrito
-- Drawer lateral persistente con todos los ítems
-- Actualización de cantidades desde el carrito
-- Total calculado en tiempo real
-- Botón **Finalizar Pedido** para avanzar al checkout
-
-### Checkout
-- Formulario de datos: nombre, teléfono, dirección, notas
-- Detección de ubicación GPS opcional
-- Validación de pedido mínimo configurable
-- Confirmación visual con número de pedido
-
-### Perfil
-- Visualización y edición de datos del cliente (nombre, correo, teléfono, dirección)
-- Detección y eliminación de ubicación GPS
-- Cierre de sesión
-
-### Mis pedidos
-- Historial de pedidos del cliente autenticado
-- Estado actual de cada pedido
-
-### Seguimiento de pedido
-- Página pública accesible sin login: `seguimiento.php?p=PED-XXXXXX`
-- Barra de progreso con 5 estados: Recibido → Confirmado → Preparando → En camino → Entregado
-- Detalle de ítems y total
+- PHP (APIs REST, sin framework)
+- JavaScript vanilla
+- MySQL vía PDO (conexión compartida con `repo-api`)
+- Google Maps Distance Matrix API
+- AWS SES (envío de OTP por email)
+- WhatsApp (notificaciones vía datarocket/Evolution)
 
 ---
 
-## Notificaciones automáticas
-
-Al confirmar un pedido el sistema envía automáticamente **dos mensajes por WhatsApp**:
-
-1. **Al negocio** — detalle completo del pedido (cliente, dirección, ítems, total)
-2. **Al cliente** — confirmación con link de seguimiento personalizado
-
-Ambos se registran en la tabla `mensajes` visible desde repo-admin.
-
----
-
-## API endpoints
-
-Todos en `/repo-app/api/`:
-
-| Archivo | Métodos | Descripción |
-|---|---|---|
-| `productos.php` | GET | Listado de productos activos con stock |
-| `categorias.php` | GET | Listado de categorías activas |
-| `pedidos.php` | POST, GET | Crear pedido / listar pedidos del cliente |
-| `clientes.php` | GET, PUT | Obtener y actualizar datos del cliente |
-| `configuracion.php` | GET | Parámetros públicos (pedido mínimo, nombre del negocio, etc.) |
-| `notificar_whatsapp.php` | POST | Proxy hacia datarocket para envío de WhatsApp |
-| `eventos.php` | POST | Registro de eventos de actividad del usuario |
-
----
-
-## Estructura de archivos
+## Estructura
 
 ```
 repo-app/
-├── index.php               # SPA principal (catálogo, carrito, checkout, perfil, pedidos)
-├── seguimiento.php         # Página pública de seguimiento de pedido
-├── manifest.json           # Manifest PWA
-├── api/                    # Endpoints REST PHP
-└── assets/
-    ├── css/app.css         # Estilos de la app
-    └── js/app.js           # Lógica completa (vanilla JS)
+├── index.php            # SPA principal (catálogo, carrito, checkout, historial)
+├── seguimiento.php      # Seguimiento público de pedido (sin login)
+├── manifest.json        # Manifiesto PWA
+├── api/
+│   ├── auth_otp.php     # Login/registro sin contraseña (OTP por email)
+│   ├── pedidos.php      # Crear pedidos, calcular distancia/tiempo
+│   ├── productos.php    # Listar productos activos con stock
+│   ├── categorias.php   # Categorías de productos
+│   ├── clientes.php     # Perfil del cliente (get/update)
+│   ├── eventos.php      # Log de actividad
+│   └── notificaciones.php
+├── assets/
+│   ├── css/app.css
+│   └── js/app.js
+└── favicon/             # Íconos PWA
 ```
 
 ---
 
-## Base de datos
+## Autenticación
 
-Usa la base de datos `repo`. Conexión definida en `/config/db.php`.
+Sin contraseña. El flujo es:
 
-Tablas que consume: `productos`, `categorias`, `pedidos`, `pedido_items`, `clientes`, `mensajes`, `eventos`, `configuracion`.
+1. El cliente ingresa su email en el checkout.
+2. Si el email ya existe → se envía un código OTP de 6 dígitos por email.
+3. Si el email es nuevo → se crea la cuenta automáticamente y se genera un JWT sin OTP.
+4. El JWT se almacena en la cookie `cliente_id` (365 días).
 
-Para crear el esquema ejecutar:
+El token incluye: `cliente_id`, `nombre`, `correo`, `rol: cliente`.
+
+---
+
+## Estados de pedido
 
 ```
-/setup/install.php
+pendiente → preparacion → asignacion → reparto → entregado
+                                               ↘ cancelado
 ```
 
 ---
 
-## Integraciones
+## Funcionalidades principales
 
-- **datarocket / Evolution** — envío de mensajes WhatsApp al negocio y al cliente
-- **Google Maps Distance Matrix** — cálculo de distancia y tiempo estimado de entrega al crear el pedido
-- **GPS del navegador** — detección de ubicación del cliente para facilitar la entrega
+- Catálogo con categorías y stock en tiempo real
+- Carrito persistente por sesión
+- Checkout en 3 pasos: email → OTP / cuenta nueva → datos de entrega
+- Geolocalización del cliente (GPS del navegador)
+- Seguimiento público de pedido en `/seguimiento.php?p=PED-XXXXXX`
+- Notificación automática por WhatsApp al negocio y al cliente al confirmar pedido
+- Instalable como PWA (icono en pantalla de inicio)
+- Modo oscuro (preferencia en `localStorage`)
 
 ---
 
-## Notas de desarrollo
+## Dependencias externas
 
-- No usa frameworks JS ni bundlers. Todo es vanilla JS en un único `app.js`.
-- La sesión del cliente se mantiene con la cookie `cliente_id` (365 días).
-- PWA: tiene `manifest.json` para instalación en pantalla de inicio.
-- Los modales usan `.modal-wrap` con `classList.add/remove('open')`.
+| Servicio | Uso |
+|---|---|
+| `repo-api/config/db.php` | Conexión a la base de datos compartida |
+| Google Maps API | Cálculo de distancia y tiempo de entrega |
+| AWS SES | Envío de códigos OTP |
+| datarocket / Evolution | Notificaciones WhatsApp |
