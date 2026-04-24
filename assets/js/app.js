@@ -219,10 +219,16 @@ const cart = {
   add(producto) {
     const idx = state.cart.findIndex(i => i.id === producto.id);
     if (idx >= 0) {
-      if (state.cart[idx].cantidad >= (producto.stock_actual ?? Infinity)) return;
+      if (state.cart[idx].cantidad >= (producto.stock_actual ?? Infinity)) {
+        showToast('No hay más unidades disponibles', 500);
+        return;
+      }
       state.cart[idx].cantidad++;
     } else {
-      if ((producto.stock_actual ?? 1) < 1) return;
+      if ((producto.stock_actual ?? 1) < 1) {
+        showToast('No hay más unidades disponibles', 500);
+        return;
+      }
       state.cart.push({ ...producto, cantidad: 1 });
     }
     this.save(); this.updateUI(); this.sync();
@@ -295,14 +301,12 @@ function renderProducts(lista) {
 
   grid.innerHTML = lista.map(p => {
     const qty = cart.qty(p.id);
-    const stockMax = p.stock_actual ?? Infinity;
-    const topado  = qty >= stockMax;
     const pJson = JSON.stringify(p).replace(/"/g,'&quot;');
     const controles = qty > 0
       ? `<div class="card-qty-row" onclick="event.stopPropagation()">
            <button class="card-qty-btn" onclick="cart.remove(${p.id});event.stopPropagation()">−</button>
            <span class="card-qty-label">${qty}</span>
-           <button class="card-qty-btn" onclick="cart.add(${pJson});event.stopPropagation()" ${topado ? 'disabled' : ''}>+</button>
+           <button class="card-qty-btn" onclick="cart.add(${pJson});event.stopPropagation()">+</button>
          </div>`
       : `<button class="card-add-btn" onclick="cart.add(${pJson});event.stopPropagation()">Agregar al carrito</button>`;
 
@@ -338,13 +342,13 @@ function renderCartItems() {
       <div class="ci-info">
         <div class="ci-name">${item.nombre}</div>
         <div class="ci-price">$${item.precio.toLocaleString('es-AR')} c/u</div>
+        <div class="ci-subtotal">$${(item.precio * item.cantidad).toLocaleString('es-AR')}</div>
       </div>
       <div class="ci-controls">
         <button class="ci-btn" onclick="cart.remove(${item.id})">−</button>
         <span class="ci-qty">${item.cantidad}</span>
-        <button class="ci-btn" onclick="cart.add(${JSON.stringify(item).replace(/"/g,'&quot;')})" ${item.cantidad >= (item.stock_actual ?? Infinity) ? 'disabled' : ''}>+</button>
+        <button class="ci-btn" onclick="cart.add(${JSON.stringify(item).replace(/"/g,'&quot;')})">+</button>
       </div>
-      <span class="ci-subtotal">$${(item.precio * item.cantidad).toLocaleString('es-AR')}</span>
     </div>`).join('');
 
   const totalEl = document.getElementById('cartTotal');
@@ -675,6 +679,56 @@ async function getCoords() {
   return coords;
 }
 
+// Actualización silenciosa de la ubicación del cliente.
+// Corre si el permiso de geolocalización está concedido; si está en 'prompt' o
+// 'denied' no pedimos permisos, pero escuchamos cambios: si el usuario lo
+// concede más tarde en la sesión (por ej. al detectar ubicación en perfil),
+// sincronizamos en ese momento.
+let _syncUbicEnCurso = false;
+async function obtenerYEnviarUbicacion() {
+  if (_syncUbicEnCurso || !getClienteId() || !navigator.geolocation) return;
+  _syncUbicEnCurso = true;
+  try {
+    const coords = await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        ()    => resolve(null),
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+    if (!coords) return;
+
+    state.clienteLat = coords.lat;
+    state.clienteLng = coords.lng;
+
+    try {
+      await fetch('api/clientes', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+      });
+    } catch { /* silencioso */ }
+  } finally {
+    _syncUbicEnCurso = false;
+  }
+}
+
+async function syncUbicacionSilenciosa() {
+  if (!getClienteId() || !navigator.geolocation) return;
+  if (!navigator.permissions || typeof navigator.permissions.query !== 'function') return;
+
+  let status;
+  try {
+    status = await navigator.permissions.query({ name: 'geolocation' });
+  } catch { return; }
+
+  if (status.state === 'granted') obtenerYEnviarUbicacion();
+
+  status.addEventListener('change', () => {
+    if (status.state === 'granted') obtenerYEnviarUbicacion();
+  });
+}
+
 let lastOrder = null;
 
 function verUltimoPedido() {
@@ -689,19 +743,6 @@ function verUltimoPedido() {
 async function submitOrder() {
   const btn = document.getElementById('btnConfirmar');
   btn.disabled = true;
-
-  let coords;
-  if (state.clienteLat && state.clienteLng) {
-    coords = { lat: state.clienteLat, lng: state.clienteLng };
-  } else {
-    btn.textContent = 'Obteniendo ubicación...';
-    coords = await getCoords();
-    if (coords.lat && coords.lng) {
-      state.clienteLat = coords.lat;
-      state.clienteLng = coords.lng;
-    }
-  }
-
   btn.textContent = 'Enviando...';
 
   // Dirección elegida: si hay selección, la usamos; si no, la principal o la primera
@@ -717,8 +758,8 @@ async function submitOrder() {
     direccion:     dirElegida ? (dirElegida.direccion || '') : '',
     notas:         document.getElementById('fNotas') ? document.getElementById('fNotas').value.trim() : '',
     items:         state.cart,
-    lat:           coords.lat,
-    lng:           coords.lng,
+    lat:           dirElegida && dirElegida.lat ? parseFloat(dirElegida.lat) : null,
+    lng:           dirElegida && dirElegida.lng ? parseFloat(dirElegida.lng) : null,
     direccion_id:  dirElegida ? dirElegida.id : null,
     session_id:    getSessionId(),
   };
@@ -1153,6 +1194,16 @@ async function detectarUbicacionDireccion() {
   if (coords.lat && coords.lng) {
     dirGeoLat = coords.lat;
     dirGeoLng = coords.lng;
+    // Aprovechar para actualizar también lat/lng del cliente
+    state.clienteLat = coords.lat;
+    state.clienteLng = coords.lng;
+    try {
+      await fetch('api/clientes', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+      });
+    } catch { /* silencioso */ }
   }
   actualizarEstadoGeoDir(dirGeoLat, dirGeoLng);
   btn.disabled = false;
@@ -1270,13 +1321,13 @@ function esc(s) {
 
 /* ===== Toast ===== */
 let toastTimer;
-function showToast(msg) {
+function showToast(msg, duration = 3000) {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
 /* ===== OTP boxes helpers ===== */
@@ -1397,7 +1448,7 @@ function renderDetailActions() {
     el.innerHTML = `<div class="pd-qty-row">
       <button class="pd-qty-btn" onclick="removeFromDetail()">−</button>
       <span class="pd-qty-label">${qty}</span>
-      <button class="pd-qty-btn" onclick="addFromDetail()" ${qty >= stockMax ? 'disabled' : ''}>+</button>
+      <button class="pd-qty-btn" onclick="addFromDetail()">+</button>
     </div>${finalizarBtn}`;
   } else {
     el.style.marginBottom = '0px';
@@ -1670,6 +1721,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { /* silencioso: problema de red, conservamos la sesión */ }
     // Sincronizar carrito local con el servidor al iniciar sesión
     if (sesionValida && state.cart.length) cart.sync();
+    // Actualización silenciosa de ubicación si el permiso ya está concedido
+    if (sesionValida) syncUbicacionSilenciosa();
   }
 
   // Cargar config

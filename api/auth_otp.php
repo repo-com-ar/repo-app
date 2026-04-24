@@ -41,6 +41,33 @@ $pdo->exec("
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ");
 
+function registrarMensajeOtp(PDO $pdo, string $correo, string $asunto, string $cuerpo, string $estado): void {
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS mensajes (
+                id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                canal        ENUM('email','whatsapp') NOT NULL,
+                destinatario VARCHAR(255) NOT NULL,
+                destino      VARCHAR(255) NOT NULL DEFAULT '',
+                asunto       VARCHAR(500) NOT NULL DEFAULT '',
+                mensaje      TEXT        NOT NULL,
+                estado       VARCHAR(50)  NOT NULL DEFAULT 'enviado',
+                created_at   TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $stmt = $pdo->prepare("SELECT nombre FROM clientes WHERE correo = ? LIMIT 1");
+        $stmt->execute([$correo]);
+        $nombre = (string)($stmt->fetchColumn() ?: $correo);
+        $stmt = $pdo->prepare("
+            INSERT INTO mensajes (canal, destinatario, destino, asunto, mensaje, estado)
+            VALUES ('email', ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$nombre, $correo, $asunto, $cuerpo, $estado]);
+    } catch (Exception $e) {
+        // No interrumpir el flujo si falla el registro
+    }
+}
+
 $body   = json_decode(file_get_contents('php://input'), true) ?? [];
 $accion = trim($body['accion'] ?? '');
 
@@ -100,6 +127,9 @@ if ($accion === 'checkout_email') {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr  = curl_error($ch);
         curl_close($ch);
+
+        $estadoMsg = ($curlErr || $httpCode >= 400) ? 'error' : 'enviado';
+        registrarMensajeOtp($pdo, $correo, $emailPayload['asunto'], $emailPayload['cuerpo'], $estadoMsg);
 
         if ($curlErr || $httpCode >= 400) {
             echo json_encode(['ok' => false, 'error' => 'No se pudo enviar el correo. Intentá de nuevo.']);
@@ -179,6 +209,9 @@ if ($accion === 'enviar') {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlErr  = curl_error($ch);
     curl_close($ch);
+
+    $estadoMsg = ($curlErr || $httpCode >= 400) ? 'error' : 'enviado';
+    registrarMensajeOtp($pdo, $correo, $emailPayload['asunto'], $emailPayload['cuerpo'], $estadoMsg);
 
     if ($curlErr || $httpCode >= 400) {
         echo json_encode(['ok' => false, 'error' => 'No se pudo enviar el correo. Intentá de nuevo.']);

@@ -62,7 +62,6 @@ body {
 }
 [data-theme="dark"] .header {
   border-bottom: none;
-  box-shadow: none;
 }
 .header-logo {
   font-size: 22px; font-weight: 800;
@@ -342,17 +341,18 @@ body {
 .ci-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .ci-qty {
   width: 28px; height: 28px; border-radius: 50%;
-  background: var(--primary-lt); border: none;
-  font-size: 13px; font-weight: 700; color: var(--primary);
+  background: #555; border: none;
+  font-size: 13px; font-weight: 700; color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
+[data-theme="dark"] .ci-qty { background: #2a2e33; }
 .ci-btn {
   width: 28px; height: 28px; border-radius: 50%;
-  background: var(--surface2); border: none;
-  font-size: 16px; cursor: pointer; color: var(--text);
+  background: var(--primary); border: none;
+  font-size: 16px; cursor: pointer; color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
-.ci-subtotal { font-size: 13px; font-weight: 700; color: var(--text); width: 60px; text-align: right; flex-shrink: 0; }
+.ci-subtotal { font-size: 14px; font-weight: 700; color: var(--text); margin-top: 2px; }
 
 .cart-footer { padding: 12px 16px 20px; border-top: 1px solid var(--border); }
 .cart-total-row {
@@ -570,8 +570,8 @@ body {
   background: linear-gradient(135deg, var(--primary), #ff9f1c);
   color: #fff; font-size: 26px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(255,160,0,.35);
   flex-shrink: 0;
+  margin-top: 20px;
 }
 
 .perfil-info {
@@ -696,7 +696,7 @@ body {
 }
 .co-dir-option--active {
   border-color: var(--primary);
-  background: var(--primary-lt);
+  background: rgba(255, 160, 0, 0.08);
 }
 .co-dir-icon { font-size: 20px; flex-shrink: 0; }
 .co-dir-text {

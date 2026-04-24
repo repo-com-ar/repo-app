@@ -15,7 +15,7 @@
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, PATCH, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
@@ -64,6 +64,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     echo json_encode(['ok' => true, 'data' => $cliente]);
+}
+
+// POST: actualización silenciosa de ubicación (requiere JWT).
+// Se usa al abrir la app cuando el permiso de geolocalización ya está concedido.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $payload = app_jwt_from_request();
+    if (!$payload || empty($payload['cliente_id'])) {
+        http_response_code(401);
+        echo json_encode(['ok' => false, 'error' => 'No autorizado']);
+        exit;
+    }
+    $clienteId = (int)$payload['cliente_id'];
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    $lat  = isset($body['lat']) && $body['lat'] !== null ? (float)$body['lat'] : null;
+    $lng  = isset($body['lng']) && $body['lng'] !== null ? (float)$body['lng'] : null;
+
+    if ($lat !== null && $lng !== null) {
+        guardarUbicacionCliente($pdo, $clienteId, $lat, $lng);
+    }
+    app_touch_last_seen($pdo, $clienteId);
+
+    echo json_encode(['ok' => true]);
+    exit;
 }
 
 // PATCH: actualizar datos del cliente
