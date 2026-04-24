@@ -32,8 +32,19 @@ try {
     $params = [];
 
     if ($cat !== 'todos') {
-        $sql .= " AND categoria = ?";
-        $params[] = $cat;
+        // Si $cat es una raíz, incluir productos de todas sus subcategorías.
+        // Si es una subcategoría (o raíz sin hijos), filtrar exacto.
+        $catIds = [$cat];
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM categorias WHERE parent_id = ?");
+            $stmt->execute([$cat]);
+            $subs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if ($subs) $catIds = array_merge($catIds, $subs);
+        } catch (Exception $e) { /* columna parent_id ausente: seguimos con filtro exacto */ }
+
+        $placeholders = implode(',', array_fill(0, count($catIds), '?'));
+        $sql .= " AND categoria IN ($placeholders)";
+        $params = array_merge($params, $catIds);
     }
     if ($q !== '') {
         $sql .= " AND nombre LIKE ?";
