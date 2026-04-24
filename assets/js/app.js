@@ -928,21 +928,34 @@ const PED_ESTADOS = {
 const PED_PASOS = ['pendiente', 'preparacion', 'asignacion', 'reparto', 'entregado'];
 const PED_PASO_LABELS = ['Recibido', 'Preparación', 'Asignación', 'En reparto', 'Entregado'];
 
+let pedidoAbierto = null;
+
 function openPedModal(p) {
   const est = PED_ESTADOS[p.estado] || { label: p.estado, color: '#64748b' };
   const fecha = new Date(p.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const pasoActual = PED_PASOS.indexOf(p.estado);
+
+  pedidoAbierto = p;
 
   document.getElementById('pmNum').textContent = p.numero;
   document.getElementById('pmFecha').textContent = fecha;
   document.getElementById('pmEstado').innerHTML =
     `<span class="pm-badge" style="background:${est.color}22;color:${est.color}">${est.label}</span>`;
 
+  const btnCancel = document.getElementById('pmBtnCancelar');
+  if (btnCancel) {
+    btnCancel.style.display = p.estado === 'pendiente' ? '' : 'none';
+    btnCancel.disabled = false;
+    btnCancel.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar pedido';
+  }
+
   // Barra de progreso
   if (p.estado !== 'cancelado') {
+    const entregado = p.estado === 'entregado';
     document.getElementById('pmSteps').innerHTML = PED_PASOS.map((paso, i) => {
-      const done = pasoActual > i, active = pasoActual === i;
-      const cls = done ? 'done' : active ? 'active' : 'pending';
+      const done   = pasoActual > i || entregado;
+      const active = !done && pasoActual === i;
+      const cls    = done ? 'done' : active ? 'active' : 'pending';
       return `<div class="pm-step">
         <div class="pm-step-dot ${cls}">${done ? '✓' : i + 1}</div>
         <div class="pm-step-label">${PED_PASO_LABELS[i]}</div>
@@ -969,6 +982,35 @@ function openPedModal(p) {
 function closePedModal() {
   document.getElementById('pedModalBackdrop').classList.remove('open');
   document.body.style.overflow = '';
+  pedidoAbierto = null;
+}
+
+async function cancelarPedidoCliente() {
+  if (!pedidoAbierto || pedidoAbierto.estado !== 'pendiente') return;
+  if (!confirm(`¿Cancelar el pedido ${pedidoAbierto.numero}?`)) return;
+
+  const btn = document.getElementById('pmBtnCancelar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelando...'; }
+
+  try {
+    const res = await fetch('api/pedidos', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ id: pedidoAbierto.id, accion: 'cancelar' }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Pedido cancelado');
+      closePedModal();
+      cargarMisPedidos();
+    } else {
+      showToast(data.error || 'No se pudo cancelar');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar pedido'; }
+    }
+  } catch {
+    showToast('Sin conexión');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar pedido'; }
+  }
 }
 
 /* ===== Perfil ===== */
@@ -1073,9 +1115,21 @@ function renderPerfil(cli) {
       </div>
       <div class="dir-lista">${listaDir}</div>
 
+      <div class="perfil-section-title">Configuración</div>
+      <div class="toggle-row">
+        <span class="toggle-label"><i class="fa-solid fa-mobile-screen-button" style="color:var(--primary);margin-right:6px"></i> Notificaciones al celular</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pushToggle" onchange="onTogglePush(event)">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="pushStatus" style="display:none;font-size:.78rem;color:var(--text2);padding:0 4px 10px">—</div>
+
       <button class="perfil-btn-edit btn-ver-carrito" onclick="openPerfilModal()">Editar datos</button>
       <button class="btn-checkout perfil-btn-logout" onclick="cerrarSesion()">Cerrar sesión</button>
     </div>`;
+
+  if (typeof sincronizarTogglePush === 'function') sincronizarTogglePush();
 }
 
 function openPerfilModal() {

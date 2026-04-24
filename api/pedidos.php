@@ -21,7 +21,7 @@ error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Methods: POST, GET, PATCH, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
@@ -304,6 +304,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->rollBack();
         http_response_code(500);
         echo json_encode(['ok' => false, 'error' => 'Error al guardar pedido']);
+    }
+    exit;
+}
+
+// PATCH: cancelar un pedido propio (solo mientras esté en estado "pendiente")
+if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+    $jwtPayload = app_jwt_from_request();
+    if (!$jwtPayload || empty($jwtPayload['cliente_id'])) {
+        http_response_code(401);
+        echo json_encode(['ok' => false, 'error' => 'No autenticado']);
+        exit;
+    }
+    $clienteId = (int)$jwtPayload['cliente_id'];
+
+    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $pedidoId = (int)($body['id'] ?? 0);
+    $accion   = trim($body['accion'] ?? '');
+
+    if (!$pedidoId || $accion !== 'cancelar') {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'id y accion=cancelar requeridos']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("SELECT id, estado, cliente_id FROM pedidos WHERE id = ?");
+    $stmt->execute([$pedidoId]);
+    $ped = $stmt->fetch();
+
+    if (!$ped) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'Pedido no encontrado']);
+        exit;
+    }
+    if ((int)$ped['cliente_id'] !== $clienteId) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'No autorizado']);
+        exit;
+    }
+    if ($ped['estado'] !== 'pendiente') {
+        http_response_code(409);
+        echo json_encode(['ok' => false, 'error' => 'Solo se puede cancelar un pedido pendiente']);
+        exit;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("UPDATE pedidos SET estado = 'cancelado' WHERE id = ?")->execute([$pedidoId]);
+
+        // Devolver stock: restituir stock_actual y liberar stock_comprometido
+        $items = $pdo->prepare("SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = ?");
+        $items->execute([$pedidoId]);
+        $restStmt = $pdo->prepare("
+            UPDATE productos
+            SET stock_actual       = stock_actual + ?,
+                stock_comprometido = GREATEST(0, stock_comprometido - ?)
+            WHERE id = ?
+        ");
+        foreach ($items->fetchAll() as $it) {
+            if (!empty($it['producto_id'])) {
+                $restStmt->execute([(int)$it['cantidad'], (int)$it['cantidad'], (int)$it['producto_id']]);
+            }
+        }
+
+        $pdo->commit();
+        echo json_encode(['ok' => true, 'id' => $pedidoId, 'estado' => 'cancelado']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'Error al cancelar el pedido']);
     }
     exit;
 }

@@ -422,10 +422,33 @@
         <div id="pmItems"></div>
         <div class="pm-total-row"><span>Total</span><span id="pmTotal"></span></div>
       </div>
+      <button class="btn-cancelar-pedido" id="pmBtnCancelar" style="display:none" onclick="cancelarPedidoCliente()">
+        <i class="fa-solid fa-ban"></i> Cancelar pedido
+      </button>
     </div>
   </div>
 </div>
 
+<!-- Banner iOS: instalar PWA en pantalla de inicio para recibir notificaciones -->
+<div class="ios-install-backdrop" id="pushInstallBanner" onclick="if(event.target===this)cerrarInstallBannerIOS()">
+  <div class="ios-install-card">
+    <button class="ios-install-close" onclick="cerrarInstallBannerIOS()" aria-label="Cerrar">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="ios-install-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+    <div class="ios-install-title">Instalá la app para recibir notificaciones</div>
+    <p class="ios-install-text">
+      En iPhone, Safari solo permite notificaciones cuando la app está en la pantalla de inicio.
+    </p>
+    <ol class="ios-install-steps">
+      <li>Tocá el botón <b>Compartir</b> <i class="fa-solid fa-arrow-up-from-bracket"></i> de Safari.</li>
+      <li>Deslizá y elegí <b>Agregar a pantalla de inicio</b>.</li>
+      <li>Abrí la app desde el nuevo ícono y activá el toggle otra vez.</li>
+    </ol>
+  </div>
+</div>
+
 <script src="assets/js/app.js?v=<?= time() ?>"></script>
+<script src="assets/js/push.js?v=<?= time() ?>"></script>
 </body>
 </html>
