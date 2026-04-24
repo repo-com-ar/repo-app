@@ -32,14 +32,20 @@ try {
     $params = [];
 
     if ($cat !== 'todos') {
-        // Si $cat es una raíz, incluir productos de todas sus subcategorías.
-        // Si es una subcategoría (o raíz sin hijos), filtrar exacto.
+        // Incluir la categoría solicitada + todos sus descendientes (hasta 3 niveles).
         $catIds = [$cat];
         try {
             $stmt = $pdo->prepare("SELECT id FROM categorias WHERE parent_id = ?");
             $stmt->execute([$cat]);
-            $subs = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            if ($subs) $catIds = array_merge($catIds, $subs);
+            $hijos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if ($hijos) {
+                $catIds = array_merge($catIds, $hijos);
+                $ph = implode(',', array_fill(0, count($hijos), '?'));
+                $stmt = $pdo->prepare("SELECT id FROM categorias WHERE parent_id IN ($ph)");
+                $stmt->execute($hijos);
+                $nietos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if ($nietos) $catIds = array_merge($catIds, $nietos);
+            }
         } catch (Exception $e) { /* columna parent_id ausente: seguimos con filtro exacto */ }
 
         $placeholders = implode(',', array_fill(0, count($catIds), '?'));
