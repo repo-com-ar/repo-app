@@ -1,3 +1,17 @@
+/* ===== PWA install — capturado lo antes posible ===== */
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  const btn = document.getElementById('btnInstall');
+  if (btn) btn.style.display = '';
+});
+window.addEventListener('appinstalled', () => {
+  _pwaPrompt = null;
+  const btn = document.getElementById('btnInstall');
+  if (btn) btn.style.display = 'none';
+});
+
 /* ===== Constants ===== */
 const OM = 'https://cdn.jsdelivr.net/npm/openmoji@15.0.0/color/svg/';
 // Pexels CDN — fotos gratuitas (pexels.com)
@@ -381,7 +395,7 @@ async function openCheckout() {
   closeCart();
   document.getElementById('confirmScreen').classList.remove('show');
 
-  const steps = ['checkoutStepEmail','checkoutStepOtp','checkoutStepExtraDatos','checkoutStepConfirmar'];
+  const steps = ['checkoutStepEmail','checkoutStepOtp','checkoutStepExtraDatos','checkoutStepDireccion','checkoutStepPago'];
   steps.forEach(id => { document.getElementById(id).style.display = 'none'; });
 
   document.getElementById('checkoutModal').classList.add('open');
@@ -392,7 +406,7 @@ async function openCheckout() {
     const nombre = document.getElementById('fCliente').value.trim();
     if (nombre && direcciones.length) {
       populateConfirmStep();
-      document.getElementById('checkoutStepConfirmar').style.display = '';
+      document.getElementById('checkoutStepDireccion').style.display = '';
     } else {
       document.getElementById('checkoutStepExtraDatos').style.display = '';
       document.getElementById('fCliente').focus();
@@ -442,6 +456,41 @@ async function checkoutEmailContinuar() {
 }
 
 let checkoutSelectedDireccionId = null;
+let checkoutMetodoPago = 'efectivo';
+
+function selectPago(metodo) {
+  checkoutMetodoPago = metodo;
+  document.getElementById('pagoEfectivo').classList.toggle('active', metodo === 'efectivo');
+  document.getElementById('pagoMercadopago').classList.toggle('active', metodo === 'mercadopago');
+}
+
+function irStepPago() {
+  // Guardar dirección seleccionada como principal (fire-and-forget)
+  if (checkoutSelectedDireccionId) {
+    fetch('api/clientes_direcciones', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ id: checkoutSelectedDireccionId, es_principal: true }),
+    }).catch(() => {});
+  }
+
+  checkoutMetodoPago = 'efectivo';
+  selectPago('efectivo');
+  document.getElementById('coTotalPago').textContent = '$' + cart.total().toLocaleString('es-AR');
+  document.getElementById('checkoutStepDireccion').style.display = 'none';
+  document.getElementById('checkoutStepPago').style.display = '';
+}
+
+function volverStepDireccion() {
+  document.getElementById('checkoutStepPago').style.display = 'none';
+  document.getElementById('checkoutStepDireccion').style.display = '';
+}
+
+function volverCheckoutCarrito() {
+  document.getElementById('checkoutModal').classList.remove('open');
+  document.body.style.overflow = '';
+  openCart();
+}
 
 async function checkoutVerificarOtp() {
   const email  = document.getElementById('fEmail').value.trim();
@@ -476,7 +525,7 @@ async function checkoutVerificarOtp() {
     const nombre = document.getElementById('fCliente').value.trim();
     if (nombre && direcciones.length) {
       populateConfirmStep();
-      document.getElementById('checkoutStepConfirmar').style.display = '';
+      document.getElementById('checkoutStepDireccion').style.display = '';
     } else {
       document.getElementById('checkoutStepExtraDatos').style.display = '';
     }
@@ -528,7 +577,7 @@ async function checkoutExtraDatosContinuar() {
 
   document.getElementById('checkoutStepExtraDatos').style.display = 'none';
   populateConfirmStep();
-  document.getElementById('checkoutStepConfirmar').style.display = '';
+  document.getElementById('checkoutStepDireccion').style.display = '';
 }
 
 function backToCheckoutEmail() {
@@ -564,29 +613,12 @@ async function resendCheckoutOtp() {
 }
 
 function populateConfirmStep() {
-  const nombre    = document.getElementById('fCliente').value.trim();
-  const email     = document.getElementById('fEmail').value.trim();
-  const telefono  = document.getElementById('fTelefono').value.trim();
-
-  const iniciales = nombre.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-  document.getElementById('coAvatar').textContent   = iniciales || '?';
-  document.getElementById('coNombre').textContent   = nombre;
-  document.getElementById('coEmail').textContent    = email;
-  document.getElementById('coTelefono').textContent = telefono;
-
   // Selector de dirección: principal por defecto
   if (!direcciones.find(d => d.id === checkoutSelectedDireccionId)) {
     const principal = direcciones.find(d => d.es_principal) || direcciones[0];
     checkoutSelectedDireccionId = principal ? principal.id : null;
   }
   renderCheckoutDireccionSelect();
-
-  document.getElementById('coItemsList').innerHTML = state.cart.map(i =>
-    `<div class="co-item">
-      <span class="co-item-name">${i.nombre} <span class="co-item-qty">×${i.cantidad}</span></span>
-      <span class="co-item-price">$${(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
-    </div>`).join('');
-  document.getElementById('coTotal').textContent = '$' + cart.total().toLocaleString('es-AR');
 }
 
 function renderCheckoutDireccionSelect() {
@@ -743,9 +775,8 @@ function verUltimoPedido() {
 async function submitOrder() {
   const btn = document.getElementById('btnConfirmar');
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.innerHTML = 'Enviando...';
 
-  // Dirección elegida: si hay selección, la usamos; si no, la principal o la primera
   const dirElegida = direcciones.find(d => d.id === checkoutSelectedDireccionId)
                   || direcciones.find(d => d.es_principal)
                   || direcciones[0]
@@ -762,28 +793,67 @@ async function submitOrder() {
     lng:           dirElegida && dirElegida.lng ? parseFloat(dirElegida.lng) : null,
     direccion_id:  dirElegida ? dirElegida.id : null,
     session_id:    getSessionId(),
+    metodo_pago:   checkoutMetodoPago,
   };
 
   try {
     const res = await enviarPedido(datos);
-    if (res.ok) {
-      if (res.token) setToken(res.token);
+    if (!res.ok) {
+      showToast(res.error || 'Error al enviar el pedido. Intentá de nuevo.');
+      btn.disabled = false;
+      btn.innerHTML = 'Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>';
+      return;
+    }
+
+    if (res.token) setToken(res.token);
+    notificarWhatsApp(res.pedido, datos);
+    notificarClienteWA(res.pedido, datos);
+
+    if (checkoutMetodoPago === 'mercadopago') {
+      // Crear preferencia y redirigir a Checkout Pro
+      btn.innerHTML = 'Redirigiendo a Mercado Pago...';
+      try {
+        const prefRes = await fetch('api/mp_preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: res.pedido.id }),
+        });
+        const rawText = await prefRes.text();
+        let prefData;
+        try { prefData = JSON.parse(rawText); } catch {
+          console.error('mp_preference respuesta no-JSON:', rawText);
+          showToast('Error al conectar con Mercado Pago (respuesta inválida).');
+          btn.disabled = false;
+          btn.innerHTML = 'Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>';
+          return;
+        }
+        if (prefData.ok && prefData.init_point) {
+          cart.clear();
+          window.location.href = prefData.init_point;
+          return;
+        } else {
+          console.error('mp_preference error:', prefData);
+          showToast('Error al conectar con Mercado Pago. Contactanos para coordinar el pago.');
+        }
+      } catch (e) {
+        console.error('mp_preference fetch error:', e);
+        showToast('Sin conexión al crear el pago. Contactanos para coordinar.');
+      }
+    } else {
+      // Efectivo: mostrar pantalla de confirmación
+      cart.clear();
       lastOrder = { ...res.pedido, fecha: res.pedido.fecha || new Date().toISOString() };
-      document.getElementById('checkoutStepConfirmar').style.display = 'none';
+      document.getElementById('checkoutStepPago').style.display = 'none';
       document.getElementById('confirmNum').textContent = res.pedido.numero;
       document.getElementById('confirmScreen').classList.add('show');
-      notificarWhatsApp(res.pedido, datos);
-      notificarClienteWA(res.pedido, datos);
-      cart.clear();
-    } else {
-      showToast(res.error || 'Error al enviar el pedido. Intentá de nuevo.');
     }
+
   } catch {
     showToast('Sin conexión. Verificá tu internet.');
   }
 
   btn.disabled = false;
-  btn.textContent = 'Confirmar y enviar pedido';
+  btn.innerHTML = 'Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>';
 }
 
 /* ===== Categories ===== */
@@ -1795,6 +1865,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Abrir producto si viene por URL (?producto=ID)
   const urlParams = new URLSearchParams(window.location.search);
+
+  // Retorno desde Mercado Pago Checkout Pro
+  const pagoResult = urlParams.get('pago');
+  if (pagoResult === 'ok') {
+    history.replaceState(null, '', window.location.pathname);
+    showToast('¡Pago recibido! Gracias por tu compra.');
+  } else if (pagoResult === 'pendiente') {
+    history.replaceState(null, '', window.location.pathname);
+    showToast('Tu pago está siendo procesado. Te avisaremos cuando se confirme.');
+  } else if (pagoResult === 'error') {
+    history.replaceState(null, '', window.location.pathname);
+    showToast('El pago no se pudo completar. Intentá de nuevo o elegí otro método.');
+  }
+
   const productoId = parseInt(urlParams.get('producto'));
   if (productoId && state.productos.length) {
     openProductModal(productoId);
@@ -1853,9 +1937,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, { passive: true });
   }
 
+  // PWA install
+  initPwaInstall();
+
   // Swipe to close drawer
   let startY = 0;
   const drawer = document.getElementById('cartDrawer');
+
   if (drawer) {
     drawer.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
     drawer.addEventListener('touchend', e => {
@@ -1863,3 +1951,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, { passive: true });
   }
 });
+
+/* ===== PWA Install ===== */
+function initPwaInstall() {
+  // Si el evento ya fue capturado antes de DOMContentLoaded, muestra el botón ahora
+  if (_pwaPrompt) {
+    const btn = document.getElementById('btnInstall');
+    if (btn) btn.style.display = '';
+  }
+}
+
+async function pwaInstall() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  const { outcome } = await _pwaPrompt.userChoice;
+  if (outcome === 'accepted') {
+    _pwaPrompt = null;
+    const btn = document.getElementById('btnInstall');
+    if (btn) btn.style.display = 'none';
+  }
+}

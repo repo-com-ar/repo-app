@@ -11,6 +11,7 @@
       document.getElementById('metaThemeColor').setAttribute('content', t === 'dark' ? '#3d4248' : '#ffffff');
     })();
   </script>
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Pedidos de comestibles rápido y fácil">
@@ -32,6 +33,9 @@
     <img class="logo-light" src="assets/img/repo_logo_black.png" alt="Repo Online" style="height:30px; width:auto;">
     <img class="logo-dark"  src="assets/img/repo_logo_withe.png" alt="Repo Online" style="height:30px; width:auto;">
   </div>
+  <button class="btn-icon" id="btnInstall" onclick="pwaInstall()" title="Instalar aplicación" style="display:none">
+    <i class="fa-solid fa-download" style="font-size:18px"></i>
+  </button>
   <button class="btn-icon" id="btnTema" onclick="tema.toggle()" title="Cambiar tema">
     <i class="fa-solid fa-moon" style="font-size:18px"></i>
   </button>
@@ -141,7 +145,7 @@
       <span class="total-amount">$<span id="cartTotal">0</span></span>
     </div>
     <button class="btn-checkout" onclick="openCheckout()">
-      Finalizar Pedido
+      Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>
     </button>
   </div>
 </div>
@@ -161,7 +165,7 @@
         <label>Correo electrónico *</label>
         <input type="email" id="fEmail" placeholder="Ej: maria@gmail.com" autocomplete="email" inputmode="email">
       </div>
-      <button class="btn-checkout" id="btnCheckoutEmail" onclick="checkoutEmailContinuar()">Continuar</button>
+      <button class="btn-checkout" id="btnCheckoutEmail" onclick="checkoutEmailContinuar()">Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i></button>
     </div>
 
     <!-- Paso 1b: Código OTP (correo existente) -->
@@ -179,7 +183,7 @@
           <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" ">
         </div>
       </div>
-      <button class="btn-checkout" id="btnCheckoutOtp" onclick="checkoutVerificarOtp()">Continuar</button>
+      <button class="btn-checkout" id="btnCheckoutOtp" onclick="checkoutVerificarOtp()">Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i></button>
       <div class="otp-actions">
         <button class="btn-checkout btn-checkout-secondary" onclick="backToCheckoutEmail()">Cambiar correo</button>
         <button class="btn-checkout btn-checkout-secondary" id="btnReenviarCheckoutOtp" onclick="resendCheckoutOtp()">Reenviar código</button>
@@ -206,35 +210,50 @@
         <input type="text" id="fDireccion" placeholder="Calle, número, piso/depto" autocomplete="street-address">
       </div>
       <textarea id="fNotas" style="display:none"></textarea>
-      <button class="btn-checkout" onclick="checkoutExtraDatosContinuar()">Continuar</button>
+      <button class="btn-checkout" onclick="checkoutExtraDatosContinuar()">Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i></button>
     </div>
 
     <!-- Paso 2: Confirmar (siempre, antes de enviar) -->
-    <div id="checkoutStepConfirmar" style="display:none">
-      <div class="modal-title">Confirmar pedido</div>
+    <!-- Paso 2a: Confirmar domicilio -->
+    <div id="checkoutStepDireccion" style="display:none">
+      <div class="modal-title">¿Dónde te lo llevamos?</div>
 
-      <div class="co-user-card">
-        <div class="co-avatar" id="coAvatar"></div>
-        <div class="co-user-info">
-          <div class="co-user-name" id="coNombre"></div>
-          <div class="co-user-detail"><i class="fa-solid fa-envelope co-detail-icon"></i><span id="coEmail"></span></div>
-          <div class="co-user-detail"><i class="fa-solid fa-phone co-detail-icon"></i><span id="coTelefono"></span></div>
-        </div>
-      </div>
-
-      <div class="co-section-label">Dirección de entrega</div>
       <div id="coDireccionSelect"></div>
       <button type="button" class="co-add-dir-btn" onclick="openDireccionModal(null)">+ Agregar nueva dirección</button>
 
-      <div class="co-section-label">Detalle del pedido</div>
-      <div id="coItemsList" class="co-items"></div>
-      <div class="co-total-row">
-        <span>Total</span>
-        <span id="coTotal"></span>
+      <button class="btn-checkout" onclick="irStepPago()">
+        Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>
+      </button>
+      <button type="button" class="btn-checkout btn-checkout-secondary" onclick="volverCheckoutCarrito()">
+        <i class="fa-solid fa-arrow-left" style="margin-right:6px"></i> Volver
+      </button>
+    </div>
+
+    <!-- Paso 2b: Método de pago -->
+    <div id="checkoutStepPago" style="display:none">
+      <div class="modal-title">¿Cómo lo querés pagar?</div>
+
+      <div class="co-total-row" style="margin-bottom:20px">
+        <span>Total a pagar</span>
+        <span id="coTotalPago"></span>
+      </div>
+
+      <div class="co-pago-options">
+        <button type="button" class="co-pago-opt active" id="pagoEfectivo" onclick="selectPago('efectivo')">
+          <i class="fa-solid fa-money-bill-wave"></i>
+          <span>Efectivo</span>
+        </button>
+        <button type="button" class="co-pago-opt" id="pagoMercadopago" onclick="selectPago('mercadopago')">
+          <i class="fa-solid fa-qrcode"></i>
+          <span>Mercado Pago</span>
+        </button>
       </div>
 
       <button class="btn-checkout" id="btnConfirmar" onclick="submitOrder()">
-        Confirmar y enviar pedido
+        Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>
+      </button>
+      <button type="button" class="btn-checkout btn-checkout-secondary" onclick="volverStepDireccion()">
+        <i class="fa-solid fa-arrow-left" style="margin-right:6px"></i> Volver
       </button>
     </div>
 
@@ -330,7 +349,7 @@
         <label>Correo electrónico *</label>
         <input type="email" id="otpEmail" placeholder="tu@correo.com" inputmode="email" autocomplete="email">
       </div>
-      <button class="btn-checkout" id="btnEnviarOtp" onclick="sendOtp()">Continuar</button>
+      <button class="btn-checkout" id="btnEnviarOtp" onclick="sendOtp()">Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i></button>
     </div>
 
     <!-- Paso 2: código OTP -->
@@ -458,5 +477,10 @@
 
 <script src="assets/js/app.js?v=<?= time() ?>"></script>
 <script src="assets/js/push.js?v=<?= time() ?>"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>

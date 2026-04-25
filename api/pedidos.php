@@ -194,8 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt = $pdo->prepare("
-            INSERT INTO pedidos (numero, cliente_id, cliente, correo, celular, direccion, direccion_id, notas, total, estado, lat, lng, distancia_km, tiempo_min)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?)
+            INSERT INTO pedidos (numero, cliente_id, cliente, correo, celular, direccion, direccion_id, notas, total, estado, lat, lng, distancia_km, tiempo_min, metodo_pago)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $numero,
@@ -211,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pedLng,
             $distanciaKm,
             $tiempoMin,
+            in_array($body['metodo_pago'] ?? '', ['efectivo','mercadopago']) ? $body['metodo_pago'] : 'efectivo',
         ]);
         $pedidoId = $pdo->lastInsertId();
 
