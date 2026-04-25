@@ -1823,6 +1823,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Hide/show search+categories bar on scroll
+  const stickyBars   = document.getElementById('stickyBars');
+  const inicioSection = document.getElementById('inicioSection');
+  function syncBarsOffset() {
+    if (stickyBars && inicioSection) {
+      inicioSection.style.paddingTop = (stickyBars.offsetHeight + parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h') || 56)) + 'px';
+    }
+  }
+  syncBarsOffset();
+  window.addEventListener('resize', syncBarsOffset, { passive: true });
+  if (stickyBars) {
+    let lastScrollY = 0;
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const y = window.scrollY;
+          if (y > lastScrollY && y > stickyBars.offsetHeight) {
+            stickyBars.classList.add('bars-hidden');
+          } else if (y < lastScrollY) {
+            stickyBars.classList.remove('bars-hidden');
+          }
+          lastScrollY = y;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+  }
+
   // Swipe to close drawer
   let startY = 0;
   const drawer = document.getElementById('cartDrawer');

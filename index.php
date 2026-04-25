@@ -45,7 +45,7 @@
 <div id="inicioSection">
 
   <!-- Search + Categories sticky bar -->
-  <div class="sticky-bars">
+  <div class="sticky-bars" id="stickyBars">
 
     <!-- Search -->
     <div class="search-wrap">

@@ -94,9 +94,12 @@ body {
 
 /* ===== Search bar ===== */
 .sticky-bars {
-  margin-top: var(--header-h);
-  position: sticky; top: var(--header-h); z-index: 90;
+  position: fixed; top: var(--header-h); left: 0; right: 0; z-index: 90;
   background: var(--bg);
+  transition: transform .25s ease;
+}
+.sticky-bars.bars-hidden {
+  transform: translateY(-100%);
 }
 .search-wrap {
   padding: 10px 16px 10px;
