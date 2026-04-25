@@ -1807,7 +1807,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Search
   const inp = document.getElementById('searchInput');
-  if (inp) inp.addEventListener('input', e => onSearch(e.target.value));
+  const clearBtn = document.getElementById('searchClear');
+  if (inp) {
+    inp.addEventListener('input', e => {
+      onSearch(e.target.value);
+      if (clearBtn) clearBtn.style.display = e.target.value ? '' : 'none';
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      inp.value = '';
+      clearBtn.style.display = 'none';
+      inp.focus();
+      onSearch('');
+    });
+  }
 
   // Swipe to close drawer
   let startY = 0;

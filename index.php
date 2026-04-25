@@ -44,19 +44,27 @@
 <!-- ===== Inicio section ===== -->
 <div id="inicioSection">
 
-  <!-- Search -->
-  <div class="search-wrap">
-    <div class="search-box">
-      <span class="search-icon">
-        <i class="fa-solid fa-magnifying-glass" style="font-size:16px"></i>
-      </span>
-      <input type="search" id="searchInput" placeholder="Buscar productos..." autocomplete="off" inputmode="search">
-    </div>
-  </div>
+  <!-- Search + Categories sticky bar -->
+  <div class="sticky-bars">
 
-  <!-- Categories -->
-  <div class="cats-wrap">
-    <div class="cats" id="catsContainer"></div>
+    <!-- Search -->
+    <div class="search-wrap">
+      <div class="search-box">
+        <span class="search-icon">
+          <i class="fa-solid fa-magnifying-glass" style="font-size:16px"></i>
+        </span>
+        <input type="search" id="searchInput" placeholder="Buscar productos..." autocomplete="off" inputmode="search">
+        <button class="search-clear" id="searchClear" type="button" style="display:none">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="cats-wrap">
+      <div class="cats" id="catsContainer"></div>
+    </div>
+
   </div>
 
   <!-- Section title -->
