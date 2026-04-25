@@ -101,23 +101,36 @@ try {
 
     $pedidoId = $pedido['id'];
 
-    // Actualizar fila en pagos (la más reciente para este pedido con metodo mercadopago)
-    $stmtUpdate = $pdo->prepare(
-        "UPDATE pagos
-         SET estado = ?, mp_payment_id = ?, mp_status = ?, monto = ?
-         WHERE pedido_id = ? AND metodo = 'mercadopago'
-         ORDER BY created_at DESC
+    // Buscar fila existente: primero por mp_payment_id (mismo webhook reenviado),
+    // si no, la última fila de mercadopago para este pedido (creada por mp_preference)
+    $stmtFind = $pdo->prepare(
+        "SELECT id FROM pagos
+         WHERE pedido_id = ? AND metodo = 'mercadopago' AND mp_payment_id = ?
          LIMIT 1"
     );
-    $stmtUpdate->execute([$estadoPago, $paymentId, $mpStatus, $montoMp, $pedidoId]);
+    $stmtFind->execute([$pedidoId, $paymentId]);
+    $pagoRow = $stmtFind->fetch();
 
-    // Si no había fila previa, insertar una nueva
-    if ($stmtUpdate->rowCount() === 0) {
-        $stmtInsert = $pdo->prepare(
+    if (!$pagoRow) {
+        $stmtFind2 = $pdo->prepare(
+            "SELECT id FROM pagos
+             WHERE pedido_id = ? AND metodo = 'mercadopago'
+             ORDER BY created_at DESC
+             LIMIT 1"
+        );
+        $stmtFind2->execute([$pedidoId]);
+        $pagoRow = $stmtFind2->fetch();
+    }
+
+    if ($pagoRow) {
+        $pdo->prepare(
+            "UPDATE pagos SET estado = ?, mp_payment_id = ?, mp_status = ?, monto = ? WHERE id = ?"
+        )->execute([$estadoPago, $paymentId, $mpStatus, $montoMp, $pagoRow['id']]);
+    } else {
+        $pdo->prepare(
             "INSERT INTO pagos (pedido_id, metodo, monto, estado, mp_payment_id, mp_status)
              VALUES (?, 'mercadopago', ?, ?, ?, ?)"
-        );
-        $stmtInsert->execute([$pedidoId, $montoMp, $estadoPago, $paymentId, $mpStatus]);
+        )->execute([$pedidoId, $montoMp, $estadoPago, $paymentId, $mpStatus]);
     }
 
     // Actualizar estado_pago del pedido

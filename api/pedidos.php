@@ -35,6 +35,7 @@ if (!file_exists($configPath)) {
 require_once $configPath;
 require_once __DIR__ . '/lib/jwt.php';
 require_once __DIR__ . '/lib/geocoding.php';
+require_once __DIR__ . '/../../repo-api/lib/pushservice.php';
 
 try {
     $pdo = getDB();
@@ -282,6 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) { /* silencioso: el pedido ya fue creado */ }
 
         $pedido = [
+            'id'        => (int)$pedidoId,
             'numero'    => $numero,
             'fecha'     => date('Y-m-d H:i:s'),
             'cliente'   => $clienteNombre,
@@ -299,6 +301,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'iat'        => time(),
             'exp'        => time() + APP_JWT_TTL,
         ]);
+
+        // Notificación al cliente: pedido recibido
+        if ($clienteId) {
+            @push_enviar_a('cliente', (int)$clienteId,
+                '🛒 ¡Pedido recibido!',
+                'Tu pedido ' . $numero . ' fue recibido. Total: $' . number_format($total, 0, ',', '.'),
+                [
+                    'url'       => './',
+                    'tag'       => 'pedido-' . $pedidoId,
+                    'pedido_id' => (int)$pedidoId,
+                ]
+            );
+        }
 
         echo json_encode(['ok' => true, 'pedido' => $pedido, 'token' => $token]);
     } catch (Exception $e) {
@@ -382,8 +397,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
 if (isset($_GET['cliente_id'])) {
     $cliId = (int)$_GET['cliente_id'];
     $stmt  = $pdo->prepare("
-        SELECT id, numero, total, estado, created_at as fecha
-        FROM pedidos WHERE cliente_id = ? ORDER BY id DESC LIMIT 50
+        SELECT p.id, p.numero, p.total, p.estado, p.metodo_pago, p.created_at as fecha,
+               (SELECT pg.estado FROM pagos pg WHERE pg.pedido_id = p.id ORDER BY pg.id DESC LIMIT 1) as pago_estado
+        FROM pedidos p WHERE p.cliente_id = ? ORDER BY p.id DESC LIMIT 50
     ");
     $stmt->execute([$cliId]);
     $pedidos = $stmt->fetchAll();

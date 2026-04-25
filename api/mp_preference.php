@@ -49,24 +49,12 @@ try {
     $stmtItems->execute([$pedidoId]);
     $items = $stmtItems->fetchAll();
 
-    if ($items) {
-        $mpItems = [];
-        foreach ($items as $i) {
-            $mpItems[] = [
-                'title'       => $i['nombre'],
-                'quantity'    => (int) $i['cantidad'],
-                'unit_price'  => (float) $i['precio'],
-                'currency_id' => 'ARS',
-            ];
-        }
-    } else {
-        $mpItems = [[
-            'title'       => 'Pedido ' . $pedido['numero'],
-            'quantity'    => 1,
-            'unit_price'  => (float) $pedido['total'],
-            'currency_id' => 'ARS',
-        ]];
-    }
+    $mpItems = [[
+        'title'       => 'Repo Pedido ' . $pedido['numero'],
+        'quantity'    => 1,
+        'unit_price'  => (float) $pedido['total'],
+        'currency_id' => 'ARS',
+    ]];
 
     $preference = [
         'items'              => $mpItems,
@@ -116,12 +104,18 @@ try {
         exit;
     }
 
-    // Registrar el pago pendiente en la tabla pagos
-    $stmtPago = $pdo->prepare(
-        "INSERT INTO pagos (pedido_id, metodo, monto, estado, mp_preference_id)
-         VALUES (?, 'mercadopago', ?, 'pendiente', ?)"
-    );
-    $stmtPago->execute([$pedidoId, $pedido['total'], $mpData['id']]);
+    // Registrar o actualizar el pago pendiente (evita duplicados por reintentos)
+    $stmtExiste = $pdo->prepare("SELECT id FROM pagos WHERE pedido_id = ? AND estado = 'pendiente' LIMIT 1");
+    $stmtExiste->execute([$pedidoId]);
+    $pagoExistente = $stmtExiste->fetch();
+
+    if ($pagoExistente) {
+        $pdo->prepare("UPDATE pagos SET mp_preference_id = ?, monto = ? WHERE id = ?")
+            ->execute([$mpData['id'], $pedido['total'], $pagoExistente['id']]);
+    } else {
+        $pdo->prepare("INSERT INTO pagos (pedido_id, metodo, monto, estado, mp_preference_id) VALUES (?, 'mercadopago', ?, 'pendiente', ?)")
+            ->execute([$pedidoId, $pedido['total'], $mpData['id']]);
+    }
 
     echo json_encode(['ok' => true, 'init_point' => $mpData['init_point']]);
 

@@ -67,6 +67,7 @@ const state = {
   loading: false,
   clienteLat: null,
   clienteLng: null,
+  favoritos: new Set(),
 };
 
 /* ===== Theme ===== */
@@ -323,10 +324,16 @@ function renderProducts(lista) {
            <button class="card-qty-btn" onclick="cart.add(${pJson});event.stopPropagation()">+</button>
          </div>`
       : `<button class="card-add-btn" onclick="cart.add(${pJson});event.stopPropagation()">Agregar al carrito</button>`;
+    const esFav = state.favoritos.has(p.id);
 
     return `
       <div class="card ${!p.stock ? 'sin-stock' : ''}" onclick="openProductModal(${p.id})">
         ${!p.stock ? '<span class="stock-tag">Sin stock</span>' : ''}
+        <button class="card-fav-btn ${esFav ? 'active' : ''}" data-id="${p.id}"
+                onclick="toggleFavorito(${p.id}, event)"
+                title="${esFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+          <i class="fa-${esFav ? 'solid' : 'regular'} fa-heart"></i>
+        </button>
         <div class="card-thumb"><img src="${p.imagen}" alt="${p.nombre}" loading="lazy" width="72" height="72"></div>
         <div class="card-body">
           <div class="card-name">${p.nombre}</div>
@@ -380,6 +387,113 @@ function closeCart() {
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('cartDrawer').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+/* ===== Notifications ===== */
+let notifsData = [];
+
+async function cargarNotifsContador() {
+  if (!getClienteId()) {
+    actualizarBadgeNotifs(0);
+    return;
+  }
+  try {
+    const res = await fetch('api/notificaciones', { headers: authHeaders() });
+    const data = await res.json();
+    if (data.ok) {
+      notifsData = data.data || [];
+      actualizarBadgeNotifs(data.unread || 0);
+    }
+  } catch (e) { /* silencioso */ }
+}
+
+function actualizarBadgeNotifs(n) {
+  const b = document.getElementById('notifBadge');
+  if (!b) return;
+  b.textContent = n > 9 ? '9+' : String(n);
+  b.classList.toggle('visible', n > 0);
+  const btnTodas = document.getElementById('btnMarcarTodas');
+  if (btnTodas) btnTodas.style.display = n > 0 ? '' : 'none';
+}
+
+async function openNotifs() {
+  if (!getClienteId()) {
+    showToast('Iniciá sesión para ver tus notificaciones');
+    return;
+  }
+  document.getElementById('notifOverlay').classList.add('open');
+  document.getElementById('notifDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  await cargarNotifsContador();
+  renderNotifs();
+}
+
+function closeNotifs() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function renderNotifs() {
+  const el = document.getElementById('notifList');
+  if (!el) return;
+  if (!notifsData.length) {
+    el.innerHTML = `<div class="cart-empty"><span class="empty-icon"><i class="fa-regular fa-bell" style="font-size:48px"></i></span><p>No tenés notificaciones</p></div>`;
+    return;
+  }
+  el.innerHTML = notifsData.map(n => {
+    const fecha = new Date(n.created_at).toLocaleString('es-AR', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    const cls = n.leida ? 'notif-row' : 'notif-row notif-unread';
+    return `<div class="${cls}" onclick="marcarLeidaYAbrir(${n.id}, ${JSON.stringify(n.data || null).replace(/"/g,'&quot;')})">
+      <div class="notif-dot"></div>
+      <div class="notif-body">
+        <div class="notif-titulo">${esc(n.titulo)}</div>
+        <div class="notif-cuerpo">${esc(n.cuerpo)}</div>
+        <div class="notif-fecha">${fecha}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function marcarLeidaYAbrir(id, data) {
+  const item = notifsData.find(x => x.id === id);
+  if (item && !item.leida) {
+    try {
+      const res = await fetch('api/notificaciones', {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const r = await res.json();
+      if (r.ok) {
+        item.leida = true;
+        actualizarBadgeNotifs(r.unread || 0);
+        renderNotifs();
+      }
+    } catch { /* silencioso */ }
+  }
+  // Si la notificación tiene una URL, navegar a ella
+  if (data && data.url) {
+    window.location.href = data.url;
+  }
+}
+
+async function marcarTodasLeidas() {
+  try {
+    const res = await fetch('api/notificaciones', {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mark_all: true }),
+    });
+    const r = await res.json();
+    if (r.ok) {
+      notifsData.forEach(n => n.leida = true);
+      actualizarBadgeNotifs(r.unread || 0);
+      renderNotifs();
+    }
+  } catch { showToast('Sin conexión'); }
 }
 
 /* ===== Checkout Modal ===== */
@@ -474,9 +588,8 @@ function irStepPago() {
     }).catch(() => {});
   }
 
-  checkoutMetodoPago = 'efectivo';
-  selectPago('efectivo');
-  document.getElementById('coTotalPago').textContent = '$' + cart.total().toLocaleString('es-AR');
+  checkoutMetodoPago = 'mercadopago';
+  selectPago('mercadopago');
   document.getElementById('checkoutStepDireccion').style.display = 'none';
   document.getElementById('checkoutStepPago').style.display = '';
 }
@@ -877,17 +990,91 @@ async function cargarCategorias() {
 function renderCats() {
   const wrap = document.getElementById('catsContainer');
   if (!wrap) return;
-  wrap.innerHTML = categorias.map(c => `
+  const renderBtn = c => `
     <button class="cat-btn ${state.categoriaActual === c.id ? 'active' : ''}"
             onclick="selectCat('${c.id}')">
       <span class="cat-emoji">${c.emoji}</span>${c.label}
-    </button>`).join('');
+    </button>`;
+  const todos = categorias.find(c => c.id === 'todos');
+  const rest  = categorias.filter(c => c.id !== 'todos');
+  const favBtn = `
+    <button class="cat-btn ${state.categoriaActual === 'favoritos' ? 'active' : ''}"
+            onclick="selectCat('favoritos')">
+      <span class="cat-emoji">❤️</span>Favoritos
+    </button>`;
+  wrap.innerHTML = (todos ? renderBtn(todos) : '') + favBtn + rest.map(renderBtn).join('');
 }
 
 function selectCat(id) {
   state.categoriaActual = id;
   renderCats();
-  fetchProductos(id, state.busqueda);
+  if (id === 'favoritos') {
+    fetchProductosFavoritos();
+  } else {
+    fetchProductos(id, state.busqueda);
+  }
+}
+
+async function fetchProductosFavoritos() {
+  state.loading = true;
+  renderProducts([]);
+  try {
+    const res  = await fetch('api/productos?categoria=todos&q=');
+    const data = await res.json();
+    const todos = data.data || [];
+    state.productos = todos.filter(p => state.favoritos.has(p.id));
+    state.loading = false;
+    renderProducts(state.productos);
+  } catch {
+    state.loading = false;
+    renderProducts([]);
+  }
+}
+
+async function toggleFavorito(productoId, event) {
+  event.stopPropagation();
+  if (!getClienteId()) {
+    showToast('Iniciá sesión para guardar favoritos');
+    return;
+  }
+  try {
+    const res = await fetch('api/favoritos', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ producto_id: productoId }),
+    });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    if (data.favorito) {
+      state.favoritos.add(productoId);
+    } else {
+      state.favoritos.delete(productoId);
+    }
+
+    // Si estamos en vista favoritos y se quitó, actualizar la grilla
+    if (state.categoriaActual === 'favoritos') {
+      state.productos = state.productos.filter(p => state.favoritos.has(p.id));
+      renderProducts(state.productos);
+    } else {
+      // Actualizar botón en la tarjeta de la grilla
+      const btn = document.querySelector(`.card-fav-btn[data-id="${productoId}"]`);
+      if (btn) {
+        btn.classList.toggle('active', data.favorito);
+        btn.title = data.favorito ? 'Quitar de favoritos' : 'Agregar a favoritos';
+        btn.innerHTML = `<i class="fa-${data.favorito ? 'solid' : 'regular'} fa-heart"></i>`;
+      }
+    }
+
+    // Actualizar botón en el modal de detalle si está abierto para este producto
+    const pdFavBtn = document.getElementById('pdFavBtn');
+    if (pdFavBtn && currentDetailProduct && currentDetailProduct.id === productoId) {
+      pdFavBtn.classList.toggle('active', data.favorito);
+      pdFavBtn.innerHTML = `<i class="fa-${data.favorito ? 'solid' : 'regular'} fa-heart"></i>`;
+    }
+  } catch {
+    showToast('Error al guardar favorito');
+  }
 }
 
 /* ===== Search ===== */
@@ -981,6 +1168,14 @@ function renderPedidos(lista) {
         <div class="pcard-items">${items}</div>
         <div class="pcard-foot">
           <span class="pcard-total">Total $${p.total.toLocaleString('es-AR')}</span>
+          <div class="pcard-pago">
+            ${p.metodo_pago === 'mercadopago'
+              ? `<span class="pcard-metodo pcard-metodo-mp"><i class="fa-solid fa-qrcode"></i> Mercado Pago</span>`
+              : `<span class="pcard-metodo pcard-metodo-ef"><i class="fa-solid fa-money-bill-wave"></i> Efectivo</span>`}
+            ${p.metodo_pago === 'mercadopago'
+              ? `<span class="pcard-pago-estado pcard-pago-${p.pago_estado || 'pendiente'}">${p.pago_estado === 'aprobado' ? 'Pagado' : 'Pago pendiente'}</span>`
+              : ''}
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -1012,9 +1207,18 @@ function openPedModal(p) {
   document.getElementById('pmEstado').innerHTML =
     `<span class="pm-badge" style="background:${est.color}22;color:${est.color}">${est.label}</span>`;
 
+  const btnPago = document.getElementById('pmBtnContinuarPago');
+  if (btnPago) {
+    const pagoMPPendiente = p.metodo_pago === 'mercadopago' && p.pago_estado !== 'aprobado' && p.estado === 'pendiente';
+    btnPago.style.display = pagoMPPendiente ? '' : 'none';
+    btnPago.disabled = false;
+    btnPago.innerHTML = '<i class="fa-solid fa-qrcode"></i> Continuar pago';
+  }
+
   const btnCancel = document.getElementById('pmBtnCancelar');
   if (btnCancel) {
-    btnCancel.style.display = p.estado === 'pendiente' ? '' : 'none';
+    const pagoPendiente = p.metodo_pago !== 'mercadopago' || p.pago_estado !== 'aprobado';
+    btnCancel.style.display = (p.estado === 'pendiente' && pagoPendiente) ? '' : 'none';
     btnCancel.disabled = false;
     btnCancel.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar pedido';
   }
@@ -1044,6 +1248,19 @@ function openPedModal(p) {
     </div>`
   ).join('');
   document.getElementById('pmTotal').textContent = '$' + p.total.toLocaleString('es-AR');
+
+  // Sección de pago
+  const esMp = p.metodo_pago === 'mercadopago';
+  const pagoAprobado = p.pago_estado === 'aprobado';
+  const metodoBadge = esMp
+    ? `<span class="pcard-metodo pcard-metodo-mp"><i class="fa-solid fa-qrcode"></i> Mercado Pago</span>`
+    : `<span class="pcard-metodo pcard-metodo-ef"><i class="fa-solid fa-money-bill-wave"></i> Efectivo</span>`;
+  const estadoBadge = esMp
+    ? (pagoAprobado
+        ? `<span class="pcard-pago-estado pcard-pago-aprobado"><i class="fa-solid fa-circle-check"></i> Pagado</span>`
+        : `<span class="pcard-pago-estado pcard-pago-pendiente"><i class="fa-solid fa-clock"></i> Pago pendiente</span>`)
+    : '';
+  document.getElementById('pmPagoInfo').innerHTML = `<div class="pm-pago-row">${metodoBadge}${estadoBadge}</div>`;
 
   document.getElementById('pedModalBackdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1080,6 +1297,30 @@ async function cancelarPedidoCliente() {
   } catch {
     showToast('Sin conexión');
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelar pedido'; }
+  }
+}
+
+async function continuarPagoMP() {
+  if (!pedidoAbierto) return;
+  const btn = document.getElementById('pmBtnContinuarPago');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Redirigiendo...'; }
+
+  try {
+    const res = await fetch('api/mp_preference', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pedido_id: pedidoAbierto.id }),
+    });
+    const data = await res.json();
+    if (data.ok && data.init_point) {
+      window.location.href = data.init_point;
+    } else {
+      showToast('No se pudo generar el link de pago. Intentá de nuevo.');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Continuar pago'; }
+    }
+  } catch {
+    showToast('Sin conexión');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Continuar pago'; }
   }
 }
 
@@ -1526,6 +1767,14 @@ function openProductModal(id) {
 
   renderDetailActions();
 
+  // Corazón favorito en el modal
+  const pdFavBtn = document.getElementById('pdFavBtn');
+  if (pdFavBtn) {
+    const esFav = state.favoritos.has(p.id);
+    pdFavBtn.classList.toggle('active', esFav);
+    pdFavBtn.innerHTML = `<i class="fa-${esFav ? 'solid' : 'regular'} fa-heart"></i>`;
+  }
+
   // Actualizar URL sin recargar
   const url = new URL(window.location);
   url.searchParams.set('producto', id);
@@ -1847,6 +2096,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sesionValida && state.cart.length) cart.sync();
     // Actualización silenciosa de ubicación si el permiso ya está concedido
     if (sesionValida) syncUbicacionSilenciosa();
+    // Cargar favoritos desde la base de datos
+    if (sesionValida) {
+      try {
+        const favRes = await fetch('api/favoritos', { headers: authHeaders() });
+        const favData = await favRes.json();
+        if (favData.ok) state.favoritos = new Set(favData.ids);
+      } catch (e) { /* silencioso */ }
+    }
+    // Cargar contador de notificaciones no leídas
+    if (sesionValida) cargarNotifsContador();
   }
 
   // Cargar config

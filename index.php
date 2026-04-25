@@ -39,6 +39,10 @@
   <button class="btn-icon" id="btnTema" onclick="tema.toggle()" title="Cambiar tema">
     <i class="fa-solid fa-moon" style="font-size:18px"></i>
   </button>
+  <button class="btn-icon" onclick="openNotifs()" title="Notificaciones">
+    <i class="fa-solid fa-bell" style="font-size:18px"></i>
+    <span class="badge" id="notifBadge">0</span>
+  </button>
   <button class="btn-icon" onclick="openCart()" title="Ver carrito">
     <i class="fa-solid fa-cart-shopping" style="font-size:18px"></i>
     <span class="badge" id="cartBadge">0</span>
@@ -107,6 +111,9 @@
     <button class="btn-close product-modal-close" onclick="closeProductModal()">✕</button>
     <div class="product-detail-img">
       <img id="pdImg" src="" alt="" width="160" height="160">
+      <button class="pd-fav-btn" id="pdFavBtn" onclick="toggleFavorito(currentDetailProduct.id, event)">
+        <i class="fa-regular fa-heart"></i>
+      </button>
     </div>
     <div class="product-detail-body">
       <div class="product-detail-name" id="pdName"></div>
@@ -147,6 +154,25 @@
     <button class="btn-checkout" onclick="openCheckout()">
       Continuar <i class="fa-solid fa-arrow-right" style="margin-left:6px"></i>
     </button>
+  </div>
+</div>
+
+<!-- ===== Notifications Drawer ===== -->
+<div class="overlay" id="notifOverlay" onclick="closeNotifs()"></div>
+<div class="cart-drawer" id="notifDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title">Notificaciones</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-link-mini" id="btnMarcarTodas" onclick="marcarTodasLeidas()" style="display:none">Marcar todas</button>
+      <button class="btn-close" onclick="closeNotifs()">✕</button>
+    </div>
+  </div>
+  <div class="cart-items" id="notifList">
+    <div class="cart-empty">
+      <span class="empty-icon"><i class="fa-regular fa-bell" style="font-size:48px"></i></span>
+      <p>No tenés notificaciones</p>
+    </div>
   </div>
 </div>
 
@@ -233,19 +259,14 @@
     <div id="checkoutStepPago" style="display:none">
       <div class="modal-title">¿Cómo lo querés pagar?</div>
 
-      <div class="co-total-row" style="margin-bottom:20px">
-        <span>Total a pagar</span>
-        <span id="coTotalPago"></span>
-      </div>
-
       <div class="co-pago-options">
-        <button type="button" class="co-pago-opt active" id="pagoEfectivo" onclick="selectPago('efectivo')">
-          <i class="fa-solid fa-money-bill-wave"></i>
-          <span>Efectivo</span>
-        </button>
-        <button type="button" class="co-pago-opt" id="pagoMercadopago" onclick="selectPago('mercadopago')">
+        <button type="button" class="co-pago-opt active" id="pagoMercadopago" onclick="selectPago('mercadopago')">
           <i class="fa-solid fa-qrcode"></i>
           <span>Mercado Pago</span>
+        </button>
+        <button type="button" class="co-pago-opt" id="pagoEfectivo" onclick="selectPago('efectivo')">
+          <i class="fa-solid fa-money-bill-wave"></i>
+          <span>Efectivo</span>
         </button>
       </div>
 
@@ -449,6 +470,13 @@
         <div id="pmItems"></div>
         <div class="pm-total-row"><span>Total</span><span id="pmTotal"></span></div>
       </div>
+      <div class="pm-section" id="pmPagoSection">
+        <div class="pm-section-title">Pago</div>
+        <div id="pmPagoInfo"></div>
+      </div>
+      <button class="btn-continuar-pago" id="pmBtnContinuarPago" style="display:none" onclick="continuarPagoMP()">
+        <i class="fa-solid fa-credit-card"></i> Continuar pago
+      </button>
       <button class="btn-cancelar-pedido" id="pmBtnCancelar" style="display:none" onclick="cancelarPedidoCliente()">
         <i class="fa-solid fa-ban"></i> Cancelar pedido
       </button>
